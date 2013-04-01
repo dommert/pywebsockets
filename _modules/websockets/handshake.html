@@ -1,0 +1,223 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>websockets.handshake &mdash; websockets 0.1 documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/pydoctheme.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '0.1',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="top" title="websockets 0.1 documentation" href="../../index.html" />
+    <link rel="up" title="Module code" href="../index.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li><a href="../../index.html">websockets 0.1 documentation</a> &raquo;</li>
+          <li><a href="../index.html" accesskey="U">Module code</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <h1>Source code for websockets.handshake</h1><div class="highlight"><pre>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">The :mod:`websockets.handshake` module deals with the WebSocket opening</span>
+<span class="sd">handshake according to `section 4 of RFC 6455`_.</span>
+
+<span class="sd">.. _section 4 of RFC 6455: http://tools.ietf.org/html/rfc6455#section-4</span>
+
+<span class="sd">It provides functions to implement the handshake with any existing HTTP</span>
+<span class="sd">library. You must pass to these functions:</span>
+
+<span class="sd">- A `set_header` function accepting a header name and a header value,</span>
+<span class="sd">- A `get_header` function accepting a header name and returning the header</span>
+<span class="sd">  value.</span>
+
+<span class="sd">The inputs and outputs of `get_header` and `set_header` are :class:`str`</span>
+<span class="sd">objects containing only ASCII characters.</span>
+
+<span class="sd">Some checks cannot be performed because they depend too much on the</span>
+<span class="sd">context; instead, they&#39;re documented below.</span>
+
+<span class="sd">To accept a connection, a server must:</span>
+
+<span class="sd">- Read the request, check that the method is GET, and check the headers with</span>
+<span class="sd">  :func:`check_request`,</span>
+<span class="sd">- Send a 101 response to the client with the headers created by</span>
+<span class="sd">  :func:`build_response` if the request is valid; otherwise, send a 400.</span>
+
+<span class="sd">To open a connection, a client must:</span>
+
+<span class="sd">- Send a GET request to the server with the headers created by</span>
+<span class="sd">  :func:`build_request`,</span>
+<span class="sd">- Read the response, check that the status code is 101, and check the headers</span>
+<span class="sd">  with :func:`check_response`.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="s">&#39;InvalidHandshake&#39;</span><span class="p">,</span>
+    <span class="s">&#39;build_request&#39;</span><span class="p">,</span> <span class="s">&#39;check_request&#39;</span><span class="p">,</span>
+    <span class="s">&#39;build_response&#39;</span><span class="p">,</span> <span class="s">&#39;check_response&#39;</span><span class="p">,</span>
+<span class="p">]</span>
+
+<span class="kn">import</span> <span class="nn">base64</span>
+<span class="kn">import</span> <span class="nn">hashlib</span>
+<span class="kn">import</span> <span class="nn">random</span>
+
+
+<span class="n">GUID</span> <span class="o">=</span> <span class="s">&quot;258EAFA5-E914-47DA-95CA-C5AB0DC85B11&quot;</span>
+
+
+<div class="viewcode-block" id="InvalidHandshake"><a class="viewcode-back" href="../../index.html#websockets.handshake.InvalidHandshake">[docs]</a><span class="k">class</span> <span class="nc">InvalidHandshake</span><span class="p">(</span><span class="ne">Exception</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Exception raised when a handshake request or response is invalid.&quot;&quot;&quot;</span>
+
+</div>
+<div class="viewcode-block" id="build_request"><a class="viewcode-back" href="../../index.html#websockets.handshake.build_request">[docs]</a><span class="k">def</span> <span class="nf">build_request</span><span class="p">(</span><span class="n">set_header</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Build a handshake request to send to the server.</span>
+
+<span class="sd">    Return the `key` which must be passed to :func:`check_response`.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">rand</span> <span class="o">=</span> <span class="nb">bytes</span><span class="p">(</span><span class="n">random</span><span class="o">.</span><span class="n">getrandbits</span><span class="p">(</span><span class="mi">8</span><span class="p">)</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">16</span><span class="p">))</span>
+    <span class="n">key</span> <span class="o">=</span> <span class="n">base64</span><span class="o">.</span><span class="n">b64encode</span><span class="p">(</span><span class="n">rand</span><span class="p">)</span><span class="o">.</span><span class="n">decode</span><span class="p">()</span>
+    <span class="n">set_header</span><span class="p">(</span><span class="s">&#39;Upgrade&#39;</span><span class="p">,</span> <span class="s">&#39;WebSocket&#39;</span><span class="p">)</span>
+    <span class="n">set_header</span><span class="p">(</span><span class="s">&#39;Connection&#39;</span><span class="p">,</span> <span class="s">&#39;Upgrade&#39;</span><span class="p">)</span>
+    <span class="n">set_header</span><span class="p">(</span><span class="s">&#39;Sec-WebSocket-Key&#39;</span><span class="p">,</span> <span class="n">key</span><span class="p">)</span>
+    <span class="n">set_header</span><span class="p">(</span><span class="s">&#39;Sec-WebSocket-Version&#39;</span><span class="p">,</span> <span class="s">&#39;13&#39;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">key</span>
+
+</div>
+<div class="viewcode-block" id="check_request"><a class="viewcode-back" href="../../index.html#websockets.handshake.check_request">[docs]</a><span class="k">def</span> <span class="nf">check_request</span><span class="p">(</span><span class="n">get_header</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Check a handshake request received from the client.</span>
+
+<span class="sd">    If the handshake is valid, this function returns the `key` which must be</span>
+<span class="sd">    passed to :func:`build_response`.</span>
+
+<span class="sd">    Otherwise, it raises an :exc:`InvalidHandshake` exception and the server</span>
+<span class="sd">    must return an error, usually 400 Bad Request.</span>
+
+<span class="sd">    This function doesn&#39;t verify that the request is an HTTP/1.1 or higher GET</span>
+<span class="sd">    request and doesn&#39;t perform Host and Origin checks. These controls are</span>
+<span class="sd">    usually performed earlier in the HTTP request handling code. They&#39;re the</span>
+<span class="sd">    responsibility of the caller.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">assert</span> <span class="n">get_header</span><span class="p">(</span><span class="s">&#39;Upgrade&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">==</span> <span class="s">&#39;websocket&#39;</span>
+        <span class="k">assert</span> <span class="nb">any</span><span class="p">(</span><span class="n">token</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span> <span class="o">==</span> <span class="s">&#39;upgrade&#39;</span>
+                <span class="k">for</span> <span class="n">token</span> <span class="ow">in</span> <span class="n">get_header</span><span class="p">(</span><span class="s">&#39;Connection&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s">&#39;,&#39;</span><span class="p">))</span>
+        <span class="n">key</span> <span class="o">=</span> <span class="n">get_header</span><span class="p">(</span><span class="s">&#39;Sec-WebSocket-Key&#39;</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">base64</span><span class="o">.</span><span class="n">b64decode</span><span class="p">(</span><span class="n">key</span><span class="o">.</span><span class="n">encode</span><span class="p">()))</span> <span class="o">==</span> <span class="mi">16</span>
+        <span class="k">assert</span> <span class="n">get_header</span><span class="p">(</span><span class="s">&#39;Sec-WebSocket-Version&#39;</span><span class="p">)</span> <span class="o">==</span> <span class="s">&#39;13&#39;</span>
+        <span class="k">return</span> <span class="n">key</span>
+    <span class="k">except</span> <span class="p">(</span><span class="ne">AssertionError</span><span class="p">,</span> <span class="ne">KeyError</span><span class="p">)</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="n">InvalidHandshake</span><span class="p">()</span> <span class="kn">from</span> <span class="nn">exc</span>
+
+</div>
+<div class="viewcode-block" id="build_response"><a class="viewcode-back" href="../../index.html#websockets.handshake.build_response">[docs]</a><span class="k">def</span> <span class="nf">build_response</span><span class="p">(</span><span class="n">set_header</span><span class="p">,</span> <span class="n">key</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Build a handshake response to send to the client.</span>
+
+<span class="sd">    `key` comes from :func:`check_request`.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">set_header</span><span class="p">(</span><span class="s">&#39;Upgrade&#39;</span><span class="p">,</span> <span class="s">&#39;WebSocket&#39;</span><span class="p">)</span>
+    <span class="n">set_header</span><span class="p">(</span><span class="s">&#39;Connection&#39;</span><span class="p">,</span> <span class="s">&#39;Upgrade&#39;</span><span class="p">)</span>
+    <span class="n">set_header</span><span class="p">(</span><span class="s">&#39;Sec-WebSocket-Accept&#39;</span><span class="p">,</span> <span class="n">accept</span><span class="p">(</span><span class="n">key</span><span class="p">))</span>
+
+</div>
+<div class="viewcode-block" id="check_response"><a class="viewcode-back" href="../../index.html#websockets.handshake.check_response">[docs]</a><span class="k">def</span> <span class="nf">check_response</span><span class="p">(</span><span class="n">get_header</span><span class="p">,</span> <span class="n">key</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Check a handshake response received from the server.</span>
+
+<span class="sd">    `key` comes from :func:`build_request`.</span>
+
+<span class="sd">    If the handshake is valid, this function returns ``None``.</span>
+
+<span class="sd">    Otherwise, it raises an :exc:`InvalidHandshake` exception.</span>
+
+<span class="sd">    This function doesn&#39;t verify that the response is an HTTP/1.1 or higher</span>
+<span class="sd">    response with a 101 status code. These controls are the responsibility of</span>
+<span class="sd">    the caller.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">assert</span> <span class="n">get_header</span><span class="p">(</span><span class="s">&#39;Upgrade&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">==</span> <span class="s">&#39;websocket&#39;</span>
+        <span class="k">assert</span> <span class="nb">any</span><span class="p">(</span><span class="n">token</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span> <span class="o">==</span> <span class="s">&#39;upgrade&#39;</span>
+                <span class="k">for</span> <span class="n">token</span> <span class="ow">in</span> <span class="n">get_header</span><span class="p">(</span><span class="s">&#39;Connection&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s">&#39;,&#39;</span><span class="p">))</span>
+        <span class="k">assert</span> <span class="n">get_header</span><span class="p">(</span><span class="s">&#39;Sec-WebSocket-Accept&#39;</span><span class="p">)</span> <span class="o">==</span> <span class="n">accept</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+    <span class="k">except</span> <span class="p">(</span><span class="ne">AssertionError</span><span class="p">,</span> <span class="ne">KeyError</span><span class="p">)</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="n">InvalidHandshake</span><span class="p">()</span> <span class="kn">from</span> <span class="nn">exc</span>
+
+</div>
+<span class="k">def</span> <span class="nf">accept</span><span class="p">(</span><span class="n">key</span><span class="p">):</span>
+    <span class="n">sha1</span> <span class="o">=</span> <span class="n">hashlib</span><span class="o">.</span><span class="n">sha1</span><span class="p">((</span><span class="n">key</span> <span class="o">+</span> <span class="n">GUID</span><span class="p">)</span><span class="o">.</span><span class="n">encode</span><span class="p">())</span><span class="o">.</span><span class="n">digest</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">base64</span><span class="o">.</span><span class="n">b64encode</span><span class="p">(</span><span class="n">sha1</span><span class="p">)</span><span class="o">.</span><span class="n">decode</span><span class="p">()</span>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li><a href="../../index.html">websockets 0.1 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >Module code</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2013, Aymeric Augustin.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2b1.
+    </div>
+  </body>
+</html>
