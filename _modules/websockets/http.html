@@ -51,18 +51,30 @@
 <span class="sd">The :mod:`websockets.http` module provides HTTP parsing functions. They&#39;re</span>
 <span class="sd">merely adequate for the WebSocket handshake messages. They&#39;re used by the</span>
 <span class="sd">sample client and servers.</span>
+
+<span class="sd">These functions cannot be imported from :mod:`websockets`; they must be</span>
+<span class="sd">imported from :mod:`websockets.http`.</span>
 <span class="sd">&quot;&quot;&quot;</span>
 
-<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span><span class="s">&#39;read_request&#39;</span><span class="p">,</span> <span class="s">&#39;read_response&#39;</span><span class="p">]</span>
+<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span><span class="s">&#39;read_request&#39;</span><span class="p">,</span> <span class="s">&#39;read_response&#39;</span><span class="p">,</span> <span class="s">&#39;USER_AGENT&#39;</span><span class="p">]</span>
 
 <span class="kn">import</span> <span class="nn">email.parser</span>
 <span class="kn">import</span> <span class="nn">io</span>
+<span class="kn">import</span> <span class="nn">sys</span>
 
 <span class="kn">import</span> <span class="nn">tulip</span>
+
+<span class="kn">from</span> <span class="nn">.version</span> <span class="kn">import</span> <span class="n">version</span>
 
 
 <span class="n">MAX_HEADERS</span> <span class="o">=</span> <span class="mi">256</span>
 <span class="n">MAX_LINE</span> <span class="o">=</span> <span class="mi">4096</span>
+
+<span class="n">USER_AGENT</span> <span class="o">=</span> <span class="s">&#39; &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">((</span>
+    <span class="s">&#39;Python/{0}.{1}&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="o">*</span><span class="n">sys</span><span class="o">.</span><span class="n">version_info</span><span class="p">),</span>
+    <span class="s">&#39;tulip/0.0&#39;</span><span class="p">,</span>
+    <span class="s">&#39;websockets/{}&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">version</span><span class="p">),</span>
+<span class="p">))</span>
 
 
 <span class="nd">@tulip.coroutine</span>

@@ -51,7 +51,11 @@
 <div class="genindex-jumpbox">
  <a href="#B"><strong>B</strong></a>
  | <a href="#C"><strong>C</strong></a>
+ | <a href="#D"><strong>D</strong></a>
+ | <a href="#F"><strong>F</strong></a>
+ | <a href="#H"><strong>H</strong></a>
  | <a href="#I"><strong>I</strong></a>
+ | <a href="#O"><strong>O</strong></a>
  | <a href="#P"><strong>P</strong></a>
  | <a href="#R"><strong>R</strong></a>
  | <a href="#S"><strong>S</strong></a>
@@ -88,7 +92,7 @@
   </dl></td>
   <td style="width: 33%" valign="top"><dl>
       
-  <dt><a href="index.html#websockets.framing.WebSocketProtocol.close">close() (websockets.framing.WebSocketProtocol method)</a>
+  <dt><a href="index.html#websockets.protocol.WebSocketCommonProtocol.close">close() (websockets.protocol.WebSocketCommonProtocol method)</a>
   </dt>
 
       
@@ -98,17 +102,79 @@
   </dl></td>
 </tr></table>
 
-<h2 id="I">I</h2>
+<h2 id="D">D</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%" valign="top"><dl>
       
-  <dt><a href="index.html#websockets.handshake.InvalidHandshake">InvalidHandshake</a>
+  <dt><a href="index.html#websockets.framing.Frame.data">data (websockets.framing.Frame attribute)</a>
+  </dt>
+
+  </dl></td>
+</tr></table>
+
+<h2 id="F">F</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%" valign="top"><dl>
+      
+  <dt><a href="index.html#websockets.framing.Frame.fin">fin (websockets.framing.Frame attribute)</a>
   </dt>
 
   </dl></td>
   <td style="width: 33%" valign="top"><dl>
       
-  <dt><a href="index.html#websockets.uri.InvalidURI">InvalidURI</a>
+  <dt><a href="index.html#websockets.framing.Frame">Frame (class in websockets.framing)</a>
+  </dt>
+
+  </dl></td>
+</tr></table>
+
+<h2 id="H">H</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%" valign="top"><dl>
+      
+  <dt><a href="index.html#websockets.client.WebSocketClientProtocol.handshake">handshake() (websockets.client.WebSocketClientProtocol method)</a>
+  </dt>
+
+      <dd><dl>
+        
+  <dt><a href="index.html#websockets.server.WebSocketServerProtocol.handshake">(websockets.server.WebSocketServerProtocol method)</a>
+  </dt>
+
+      </dl></dd>
+  </dl></td>
+</tr></table>
+
+<h2 id="I">I</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%" valign="top"><dl>
+      
+  <dt><a href="index.html#websockets.exceptions.InvalidHandshake">InvalidHandshake</a>
+  </dt>
+
+      
+  <dt><a href="index.html#websockets.exceptions.InvalidState">InvalidState</a>
+  </dt>
+
+  </dl></td>
+  <td style="width: 33%" valign="top"><dl>
+      
+  <dt><a href="index.html#websockets.exceptions.InvalidURI">InvalidURI</a>
+  </dt>
+
+  </dl></td>
+</tr></table>
+
+<h2 id="O">O</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%" valign="top"><dl>
+      
+  <dt><a href="index.html#websockets.framing.Frame.opcode">opcode (websockets.framing.Frame attribute)</a>
+  </dt>
+
+  </dl></td>
+  <td style="width: 33%" valign="top"><dl>
+      
+  <dt><a href="index.html#websockets.protocol.WebSocketCommonProtocol.open">open (websockets.protocol.WebSocketCommonProtocol attribute)</a>
   </dt>
 
   </dl></td>
@@ -118,17 +184,21 @@
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%" valign="top"><dl>
       
-  <dt><a href="index.html#websockets.uri.parse_uri">parse_uri() (in module websockets.uri)</a>
+  <dt><a href="index.html#websockets.framing.parse_close">parse_close() (in module websockets.framing)</a>
   </dt>
 
       
-  <dt><a href="index.html#websockets.framing.WebSocketProtocol.ping">ping() (websockets.framing.WebSocketProtocol method)</a>
+  <dt><a href="index.html#websockets.uri.parse_uri">parse_uri() (in module websockets.uri)</a>
   </dt>
 
   </dl></td>
   <td style="width: 33%" valign="top"><dl>
       
-  <dt><a href="index.html#websockets.framing.WebSocketProtocol.pong">pong() (websockets.framing.WebSocketProtocol method)</a>
+  <dt><a href="index.html#websockets.protocol.WebSocketCommonProtocol.ping">ping() (websockets.protocol.WebSocketCommonProtocol method)</a>
+  </dt>
+
+      
+  <dt><a href="index.html#websockets.protocol.WebSocketCommonProtocol.pong">pong() (websockets.protocol.WebSocketCommonProtocol method)</a>
   </dt>
 
   </dl></td>
@@ -138,17 +208,21 @@
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%" valign="top"><dl>
       
-  <dt><a href="index.html#websockets.http.read_request">read_request() (in module websockets.http)</a>
+  <dt><a href="index.html#websockets.framing.read_frame">read_frame() (in module websockets.framing)</a>
   </dt>
 
       
-  <dt><a href="index.html#websockets.http.read_response">read_response() (in module websockets.http)</a>
+  <dt><a href="index.html#websockets.http.read_request">read_request() (in module websockets.http)</a>
   </dt>
 
   </dl></td>
   <td style="width: 33%" valign="top"><dl>
       
-  <dt><a href="index.html#websockets.framing.WebSocketProtocol.recv">recv() (websockets.framing.WebSocketProtocol method)</a>
+  <dt><a href="index.html#websockets.http.read_response">read_response() (in module websockets.http)</a>
+  </dt>
+
+      
+  <dt><a href="index.html#websockets.protocol.WebSocketCommonProtocol.recv">recv() (websockets.protocol.WebSocketCommonProtocol method)</a>
   </dt>
 
   </dl></td>
@@ -158,7 +232,11 @@
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%" valign="top"><dl>
       
-  <dt><a href="index.html#websockets.framing.WebSocketProtocol.send">send() (websockets.framing.WebSocketProtocol method)</a>
+  <dt><a href="index.html#websockets.protocol.WebSocketCommonProtocol.send">send() (websockets.protocol.WebSocketCommonProtocol method)</a>
+  </dt>
+
+      
+  <dt><a href="index.html#websockets.framing.serialize_close">serialize_close() (in module websockets.framing)</a>
   </dt>
 
   </dl></td>
@@ -174,11 +252,11 @@
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%" valign="top"><dl>
       
-  <dt><a href="index.html#websockets.framing.WebSocketProtocol.wait_close">wait_close() (websockets.framing.WebSocketProtocol method)</a>
+  <dt><a href="index.html#websockets.client.WebSocketClientProtocol">WebSocketClientProtocol (class in websockets.client)</a>
   </dt>
 
       
-  <dt><a href="index.html#websockets.framing.WebSocketProtocol">WebSocketProtocol (class in websockets.framing)</a>
+  <dt><a href="index.html#websockets.protocol.WebSocketCommonProtocol">WebSocketCommonProtocol (class in websockets.protocol)</a>
   </dt>
 
       
@@ -190,17 +268,25 @@
   </dt>
 
       
+  <dt><a href="index.html#module-websockets.exceptions">websockets.exceptions (module)</a>
+  </dt>
+
+      
   <dt><a href="index.html#module-websockets.framing">websockets.framing (module)</a>
+  </dt>
+
+      
+  <dt><a href="index.html#module-websockets.handshake">websockets.handshake (module)</a>
   </dt>
 
   </dl></td>
   <td style="width: 33%" valign="top"><dl>
       
-  <dt><a href="index.html#module-websockets.handshake">websockets.handshake (module)</a>
+  <dt><a href="index.html#module-websockets.http">websockets.http (module)</a>
   </dt>
 
       
-  <dt><a href="index.html#module-websockets.http">websockets.http (module)</a>
+  <dt><a href="index.html#module-websockets.protocol">websockets.protocol (module)</a>
   </dt>
 
       
@@ -209,6 +295,14 @@
 
       
   <dt><a href="index.html#module-websockets.uri">websockets.uri (module)</a>
+  </dt>
+
+      
+  <dt><a href="index.html#websockets.server.WebSocketServerProtocol">WebSocketServerProtocol (class in websockets.server)</a>
+  </dt>
+
+      
+  <dt><a href="index.html#websockets.framing.write_frame">write_frame() (in module websockets.framing)</a>
   </dt>
 
   </dl></td>

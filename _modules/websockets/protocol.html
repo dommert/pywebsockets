@@ -1,0 +1,451 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>websockets.protocol &mdash; websockets 0.1 documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/pydoctheme.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '0.1',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="top" title="websockets 0.1 documentation" href="../../index.html" />
+    <link rel="up" title="Module code" href="../index.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li><a href="../../index.html">websockets 0.1 documentation</a> &raquo;</li>
+          <li><a href="../index.html" accesskey="U">Module code</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <h1>Source code for websockets.protocol</h1><div class="highlight"><pre>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">The :mod:`websockets.protocols` module handles WebSocket control and data</span>
+<span class="sd">frames as specified in `sections 4 to 8 of RFC 6455`_.</span>
+
+<span class="sd">.. _sections 4 to 8 of RFC 6455: http://tools.ietf.org/html/rfc6455#section-4</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span><span class="s">&#39;WebSocketCommonProtocol&#39;</span><span class="p">]</span>
+
+<span class="kn">import</span> <span class="nn">codecs</span>
+<span class="kn">import</span> <span class="nn">collections</span>
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">import</span> <span class="nn">queue</span>
+<span class="kn">import</span> <span class="nn">random</span>
+<span class="kn">import</span> <span class="nn">struct</span>
+
+<span class="kn">import</span> <span class="nn">tulip</span>
+<span class="kn">from</span> <span class="nn">tulip.queues</span> <span class="kn">import</span> <span class="n">Queue</span>
+
+<span class="kn">from</span> <span class="nn">.exceptions</span> <span class="kn">import</span> <span class="n">InvalidState</span><span class="p">,</span> <span class="n">WebSocketProtocolError</span>
+<span class="kn">from</span> <span class="nn">.framing</span> <span class="kn">import</span> <span class="o">*</span>
+<span class="kn">from</span> <span class="nn">.handshake</span> <span class="kn">import</span> <span class="o">*</span>
+
+
+<span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="n">__name__</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="WebSocketCommonProtocol"><a class="viewcode-back" href="../../index.html#websockets.protocol.WebSocketCommonProtocol">[docs]</a><span class="k">class</span> <span class="nc">WebSocketCommonProtocol</span><span class="p">(</span><span class="n">tulip</span><span class="o">.</span><span class="n">Protocol</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    This class implements common parts of the WebSocket protocol.</span>
+
+<span class="sd">    It assumes that the WebSocket connection is established. It runs a task</span>
+<span class="sd">    that stores incoming data frames in a queue and deals with control frames</span>
+<span class="sd">    automatically. It sends outgoing data frames and performs with the closing</span>
+<span class="sd">    handshake.</span>
+
+<span class="sd">    The `timeout` parameter defines the maximum wait time in seconds for</span>
+<span class="sd">    completing the closing handshake and for terminating the TCP connection.</span>
+<span class="sd">    :meth:`close()` will complete in at most twice this time.</span>
+
+<span class="sd">    Once the connection is closed, the status code is available in the</span>
+<span class="sd">    :attr:`close_code` attribute and the reason in :attr:`close_reason`. If</span>
+<span class="sd">    you need to wait until the connection is closed, you can yield from</span>
+<span class="sd">    :attr:`worker`.</span>
+
+<span class="sd">    There are only two differences between the client-side and the server-side</span>
+<span class="sd">    behavior: masking the payload and closing the underlying TCP connection.</span>
+<span class="sd">    This class implements the server-side behavior by default. To get the</span>
+<span class="sd">    client-side behavior, set the class attribute ``is_client`` to ``True``.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">is_client</span> <span class="o">=</span> <span class="bp">False</span>
+    <span class="n">state</span> <span class="o">=</span> <span class="s">&#39;OPEN&#39;</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="mi">10</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">timeout</span> <span class="o">=</span> <span class="n">timeout</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">close_code</span> <span class="o">=</span> <span class="bp">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">close_reason</span> <span class="o">=</span> <span class="s">&#39;&#39;</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">opening_handshake</span> <span class="o">=</span> <span class="n">tulip</span><span class="o">.</span><span class="n">Future</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">closing_handshake</span> <span class="o">=</span> <span class="n">tulip</span><span class="o">.</span><span class="n">Future</span><span class="p">()</span>
+
+        <span class="c"># Queue of received messages.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">messages</span> <span class="o">=</span> <span class="n">Queue</span><span class="p">()</span>
+
+        <span class="c"># Mapping of ping IDs to waiters, in chronological order.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">pings</span> <span class="o">=</span> <span class="n">collections</span><span class="o">.</span><span class="n">OrderedDict</span><span class="p">()</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">worker</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
+
+        <span class="c"># In a subclass implementing the opening handshake, the state will be</span>
+        <span class="c"># CONNECTING at this point.</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">state</span> <span class="o">==</span> <span class="s">&#39;OPEN&#39;</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">opening_handshake</span><span class="o">.</span><span class="n">set_result</span><span class="p">(</span><span class="bp">True</span><span class="p">)</span>
+
+    <span class="c"># Public API</span>
+
+    <span class="nd">@property</span>
+<div class="viewcode-block" id="WebSocketCommonProtocol.open"><a class="viewcode-back" href="../../index.html#websockets.protocol.WebSocketCommonProtocol.open">[docs]</a>    <span class="k">def</span> <span class="nf">open</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        This property is ``True`` when the connection is usable.</span>
+
+<span class="sd">        It can be used to write loops on the server side and handle</span>
+<span class="sd">        disconnections gracefully::</span>
+
+<span class="sd">            while ws.open:</span>
+<span class="sd">                # ...</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">state</span> <span class="o">==</span> <span class="s">&#39;OPEN&#39;</span>
+</div>
+    <span class="nd">@tulip.coroutine</span>
+<div class="viewcode-block" id="WebSocketCommonProtocol.recv"><a class="viewcode-back" href="../../index.html#websockets.protocol.WebSocketCommonProtocol.recv">[docs]</a>    <span class="k">def</span> <span class="nf">recv</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        This coroutine receives the next message.</span>
+
+<span class="sd">        It returns a :class:`str` for a text frame and :class:`bytes` for a</span>
+<span class="sd">        binary frame.</span>
+
+<span class="sd">        When the end of the message stream is reached, or when a protocol</span>
+<span class="sd">        error occurs, :meth:`recv` returns ``None``, indicating that the</span>
+<span class="sd">        connection is closed.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c"># Return any available message</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">messages</span><span class="o">.</span><span class="n">get_nowait</span><span class="p">()</span>
+        <span class="k">except</span> <span class="n">queue</span><span class="o">.</span><span class="n">Empty</span><span class="p">:</span>
+            <span class="k">pass</span>
+
+        <span class="c"># Wait for a message until the connection is closed</span>
+        <span class="n">next_message</span> <span class="o">=</span> <span class="n">tulip</span><span class="o">.</span><span class="n">Task</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">messages</span><span class="o">.</span><span class="n">get</span><span class="p">())</span>
+        <span class="n">done</span><span class="p">,</span> <span class="n">pending</span> <span class="o">=</span> <span class="k">yield from</span> <span class="n">tulip</span><span class="o">.</span><span class="n">wait</span><span class="p">(</span>
+                <span class="p">[</span><span class="n">next_message</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">worker</span><span class="p">],</span>
+                <span class="n">return_when</span><span class="o">=</span><span class="n">tulip</span><span class="o">.</span><span class="n">FIRST_COMPLETED</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">next_message</span> <span class="ow">in</span> <span class="n">done</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">next_message</span><span class="o">.</span><span class="n">result</span><span class="p">()</span>
+</div>
+<div class="viewcode-block" id="WebSocketCommonProtocol.send"><a class="viewcode-back" href="../../index.html#websockets.protocol.WebSocketCommonProtocol.send">[docs]</a>    <span class="k">def</span> <span class="nf">send</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        This function sends a message.</span>
+
+<span class="sd">        It sends a :class:`str` as a text frame and :class:`bytes` as a binary</span>
+<span class="sd">        frame.</span>
+
+<span class="sd">        It raises a :exc:`TypeError` for other inputs and</span>
+<span class="sd">        :exc:`InvalidState` once the connection is closed.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+            <span class="n">opcode</span> <span class="o">=</span> <span class="mi">1</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s">&#39;utf-8&#39;</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="nb">bytes</span><span class="p">):</span>
+            <span class="n">opcode</span> <span class="o">=</span> <span class="mi">2</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s">&quot;data must be bytes or str&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">write_frame</span><span class="p">(</span><span class="n">opcode</span><span class="p">,</span> <span class="n">data</span><span class="p">)</span>
+</div>
+    <span class="nd">@tulip.task</span>
+<div class="viewcode-block" id="WebSocketCommonProtocol.close"><a class="viewcode-back" href="../../index.html#websockets.protocol.WebSocketCommonProtocol.close">[docs]</a>    <span class="k">def</span> <span class="nf">close</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">code</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span> <span class="n">reason</span><span class="o">=</span><span class="s">&#39;&#39;</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        This task performs the closing handshake.</span>
+
+<span class="sd">        This is the expected way to terminate a connection on the server side.</span>
+
+<span class="sd">        It waits for the other end to complete the handshake. It doesn&#39;t do</span>
+<span class="sd">        anything once the connection is closed.</span>
+
+<span class="sd">        The `code` must be an :class:`int` and the `reason` a :class:`str`.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">state</span> <span class="o">==</span> <span class="s">&#39;OPEN&#39;</span><span class="p">:</span>
+            <span class="c"># 7.1.2. Start the WebSocket Closing Handshake</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">close_code</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">close_reason</span> <span class="o">=</span> <span class="n">code</span><span class="p">,</span> <span class="n">reason</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">write_frame</span><span class="p">(</span><span class="n">OP_CLOSE</span><span class="p">,</span> <span class="n">serialize_close</span><span class="p">(</span><span class="n">code</span><span class="p">,</span> <span class="n">reason</span><span class="p">))</span>
+            <span class="c"># 7.1.3. The WebSocket Closing Handshake is Started</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">state</span> <span class="o">=</span> <span class="s">&#39;CLOSING&#39;</span>
+
+        <span class="k">yield from</span> <span class="n">tulip</span><span class="o">.</span><span class="n">wait</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">closing_handshake</span><span class="p">],</span> <span class="n">timeout</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">timeout</span><span class="p">)</span>
+        <span class="k">yield from</span> <span class="n">tulip</span><span class="o">.</span><span class="n">wait</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">worker</span><span class="p">],</span> <span class="n">timeout</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">timeout</span><span class="p">)</span>
+
+        <span class="c"># Last ditch cleanup.</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">state</span> <span class="o">!=</span> <span class="s">&#39;CLOSED&#39;</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">transport</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+</div>
+    <span class="nd">@tulip.task</span>
+<div class="viewcode-block" id="WebSocketCommonProtocol.ping"><a class="viewcode-back" href="../../index.html#websockets.protocol.WebSocketCommonProtocol.ping">[docs]</a>    <span class="k">def</span> <span class="nf">ping</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        This coroutine sends a ping and waits for the corresponding pong.</span>
+
+<span class="sd">        A ping may serve as a keepalive.</span>
+
+<span class="sd">        Since it&#39;s implemented as a task, you can simply call it as a function</span>
+<span class="sd">        if you don&#39;t need to wait.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c"># Protect against duplicates if a payload is explicitly set.</span>
+        <span class="k">if</span> <span class="n">data</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">pings</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s">&quot;Already waiting for a pong with the same data&quot;</span><span class="p">)</span>
+        <span class="c"># Generate a unique random payload otherwise.</span>
+        <span class="k">while</span> <span class="n">data</span> <span class="ow">is</span> <span class="bp">None</span> <span class="ow">or</span> <span class="n">data</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">pings</span><span class="p">:</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="n">struct</span><span class="o">.</span><span class="n">pack</span><span class="p">(</span><span class="s">&#39;!I&#39;</span><span class="p">,</span> <span class="n">random</span><span class="o">.</span><span class="n">getrandbits</span><span class="p">(</span><span class="mi">32</span><span class="p">))</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">pings</span><span class="p">[</span><span class="n">data</span><span class="p">]</span> <span class="o">=</span> <span class="n">tulip</span><span class="o">.</span><span class="n">Future</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">write_frame</span><span class="p">(</span><span class="n">OP_PING</span><span class="p">,</span> <span class="n">data</span><span class="p">)</span>
+        <span class="k">yield from</span> <span class="bp">self</span><span class="o">.</span><span class="n">pings</span><span class="p">[</span><span class="n">data</span><span class="p">]</span>
+</div>
+<div class="viewcode-block" id="WebSocketCommonProtocol.pong"><a class="viewcode-back" href="../../index.html#websockets.protocol.WebSocketCommonProtocol.pong">[docs]</a>    <span class="k">def</span> <span class="nf">pong</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="n">b</span><span class="s">&#39;&#39;</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        This function sends a pong.</span>
+
+<span class="sd">        An unsolicited pong may serve as a unidirectional heartbeat.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">write_frame</span><span class="p">(</span><span class="n">OP_PONG</span><span class="p">,</span> <span class="n">data</span><span class="p">)</span>
+
+    <span class="c"># Private methods - no guarantees.</span>
+</div>
+    <span class="nd">@tulip.task</span>
+    <span class="k">def</span> <span class="nf">run</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">yield from</span> <span class="bp">self</span><span class="o">.</span><span class="n">opening_handshake</span>
+        <span class="k">while</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">closing_handshake</span><span class="o">.</span><span class="n">done</span><span class="p">():</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">msg</span> <span class="o">=</span> <span class="k">yield from</span> <span class="bp">self</span><span class="o">.</span><span class="n">read_message</span><span class="p">()</span>
+                <span class="k">if</span> <span class="n">msg</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+                    <span class="k">break</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">messages</span><span class="o">.</span><span class="n">put_nowait</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+            <span class="k">except</span> <span class="n">WebSocketProtocolError</span><span class="p">:</span>
+                <span class="k">yield from</span> <span class="bp">self</span><span class="o">.</span><span class="n">fail_connection</span><span class="p">(</span><span class="mi">1002</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">UnicodeDecodeError</span><span class="p">:</span>
+                <span class="k">yield from</span> <span class="bp">self</span><span class="o">.</span><span class="n">fail_connection</span><span class="p">(</span><span class="mi">1007</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+                <span class="k">yield from</span> <span class="bp">self</span><span class="o">.</span><span class="n">fail_connection</span><span class="p">(</span><span class="mi">1011</span><span class="p">)</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">exception</span><span class="p">(</span><span class="s">&quot;Unhandled exception in </span><span class="si">%s</span><span class="s">.run()&quot;</span>
+                        <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">__class__</span><span class="o">.</span><span class="n">__name__</span><span class="p">)</span>
+                <span class="k">raise</span>
+
+    <span class="nd">@tulip.coroutine</span>
+    <span class="k">def</span> <span class="nf">read_message</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="c"># Reassemble fragmented messages.</span>
+        <span class="n">frame</span> <span class="o">=</span> <span class="k">yield from</span> <span class="bp">self</span><span class="o">.</span><span class="n">read_data_frame</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">frame</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="k">return</span>
+        <span class="k">if</span> <span class="n">frame</span><span class="o">.</span><span class="n">opcode</span> <span class="o">==</span> <span class="n">OP_TEXT</span><span class="p">:</span>
+            <span class="n">text</span> <span class="o">=</span> <span class="bp">True</span>
+        <span class="k">elif</span> <span class="n">frame</span><span class="o">.</span><span class="n">opcode</span> <span class="o">==</span> <span class="n">OP_BINARY</span><span class="p">:</span>
+            <span class="n">text</span> <span class="o">=</span> <span class="bp">False</span>
+        <span class="k">else</span><span class="p">:</span>   <span class="c"># frame.opcode == OP_CONT</span>
+            <span class="k">raise</span> <span class="n">WebSocketProtocolError</span><span class="p">(</span><span class="s">&quot;Unexpected opcode&quot;</span><span class="p">)</span>
+
+        <span class="c"># Shortcut for the common case - no fragmentation</span>
+        <span class="k">if</span> <span class="n">frame</span><span class="o">.</span><span class="n">fin</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">frame</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="s">&#39;utf-8&#39;</span><span class="p">)</span> <span class="k">if</span> <span class="n">text</span> <span class="k">else</span> <span class="n">frame</span><span class="o">.</span><span class="n">data</span>
+
+        <span class="c"># 5.4. Fragmentation</span>
+        <span class="n">chunks</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">if</span> <span class="n">text</span><span class="p">:</span>
+            <span class="n">decoder</span> <span class="o">=</span> <span class="n">codecs</span><span class="o">.</span><span class="n">getincrementaldecoder</span><span class="p">(</span><span class="s">&#39;utf-8&#39;</span><span class="p">)(</span><span class="n">errors</span><span class="o">=</span><span class="s">&#39;strict&#39;</span><span class="p">)</span>
+            <span class="n">append</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">f</span><span class="p">:</span> <span class="n">chunks</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">decoder</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="n">f</span><span class="o">.</span><span class="n">data</span><span class="p">,</span> <span class="n">f</span><span class="o">.</span><span class="n">fin</span><span class="p">))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">append</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">f</span><span class="p">:</span> <span class="n">chunks</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">f</span><span class="o">.</span><span class="n">data</span><span class="p">)</span>
+        <span class="n">append</span><span class="p">(</span><span class="n">frame</span><span class="p">)</span>
+
+        <span class="k">while</span> <span class="ow">not</span> <span class="n">frame</span><span class="o">.</span><span class="n">fin</span><span class="p">:</span>
+            <span class="n">frame</span> <span class="o">=</span> <span class="k">yield from</span> <span class="bp">self</span><span class="o">.</span><span class="n">read_data_frame</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">frame</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">WebSocketProtocolError</span><span class="p">(</span><span class="s">&quot;Incomplete fragmented message&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">frame</span><span class="o">.</span><span class="n">opcode</span> <span class="o">!=</span> <span class="n">OP_CONT</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">WebSocketProtocolError</span><span class="p">(</span><span class="s">&quot;Unexpected opcode&quot;</span><span class="p">)</span>
+            <span class="n">append</span><span class="p">(</span><span class="n">frame</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="p">(</span><span class="s">&#39;&#39;</span> <span class="k">if</span> <span class="n">text</span> <span class="k">else</span> <span class="n">b</span><span class="s">&#39;&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">chunks</span><span class="p">)</span>
+
+    <span class="nd">@tulip.coroutine</span>
+    <span class="k">def</span> <span class="nf">read_data_frame</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="c"># Deal with control frames automatically and return next data frame.</span>
+        <span class="c"># 6.2. Receiving Data</span>
+        <span class="k">while</span> <span class="bp">True</span><span class="p">:</span>
+            <span class="n">frame</span> <span class="o">=</span> <span class="k">yield from</span> <span class="bp">self</span><span class="o">.</span><span class="n">read_frame</span><span class="p">()</span>
+            <span class="c"># 5.5. Control Frames</span>
+            <span class="k">if</span> <span class="n">frame</span><span class="o">.</span><span class="n">opcode</span> <span class="o">==</span> <span class="n">OP_CLOSE</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">close_code</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">close_reason</span> <span class="o">=</span> <span class="n">parse_close</span><span class="p">(</span><span class="n">frame</span><span class="o">.</span><span class="n">data</span><span class="p">)</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">state</span> <span class="o">!=</span> <span class="s">&#39;CLOSING&#39;</span><span class="p">:</span>
+                    <span class="c"># 7.1.3. The WebSocket Closing Handshake is Started</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">state</span> <span class="o">=</span> <span class="s">&#39;CLOSING&#39;</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">write_frame</span><span class="p">(</span><span class="n">OP_CLOSE</span><span class="p">,</span> <span class="n">frame</span><span class="o">.</span><span class="n">data</span><span class="p">,</span> <span class="s">&#39;CLOSING&#39;</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">closing_handshake</span><span class="o">.</span><span class="n">set_result</span><span class="p">(</span><span class="bp">True</span><span class="p">)</span>
+                <span class="k">yield from</span> <span class="bp">self</span><span class="o">.</span><span class="n">close_connection</span><span class="p">()</span>
+                <span class="k">return</span>
+            <span class="k">elif</span> <span class="n">frame</span><span class="o">.</span><span class="n">opcode</span> <span class="o">==</span> <span class="n">OP_PING</span><span class="p">:</span>
+                <span class="c"># Answer pings.</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">pong</span><span class="p">(</span><span class="n">frame</span><span class="o">.</span><span class="n">data</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="n">frame</span><span class="o">.</span><span class="n">opcode</span> <span class="o">==</span> <span class="n">OP_PONG</span><span class="p">:</span>
+                <span class="c"># Do not acknowledge pings on unsolicited pongs.</span>
+                <span class="k">if</span> <span class="n">frame</span><span class="o">.</span><span class="n">data</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">pings</span><span class="p">:</span>
+                    <span class="c"># Acknowledge all pings up to the one matching this pong.</span>
+                    <span class="n">ping_id</span> <span class="o">=</span> <span class="bp">None</span>
+                    <span class="k">while</span> <span class="n">ping_id</span> <span class="o">!=</span> <span class="n">frame</span><span class="o">.</span><span class="n">data</span><span class="p">:</span>
+                        <span class="n">ping_id</span><span class="p">,</span> <span class="n">waiter</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">pings</span><span class="o">.</span><span class="n">popitem</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+                        <span class="n">waiter</span><span class="o">.</span><span class="n">set_result</span><span class="p">(</span><span class="bp">None</span><span class="p">)</span>
+            <span class="c"># 5.6. Data Frames</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">frame</span>
+
+    <span class="nd">@tulip.coroutine</span>
+    <span class="k">def</span> <span class="nf">read_frame</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">is_masked</span> <span class="o">=</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_client</span>
+        <span class="n">frame</span> <span class="o">=</span> <span class="k">yield from</span> <span class="n">read_frame</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">stream</span><span class="o">.</span><span class="n">readexactly</span><span class="p">,</span> <span class="n">is_masked</span><span class="p">)</span>
+        <span class="n">side</span> <span class="o">=</span> <span class="s">&#39;client&#39;</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_client</span> <span class="k">else</span> <span class="s">&#39;server&#39;</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s">&quot;</span><span class="si">%s</span><span class="s"> &lt;&lt; </span><span class="si">%s</span><span class="s">&quot;</span><span class="p">,</span> <span class="n">side</span><span class="p">,</span> <span class="n">frame</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">frame</span>
+
+    <span class="k">def</span> <span class="nf">write_frame</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">opcode</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="n">b</span><span class="s">&#39;&#39;</span><span class="p">,</span> <span class="n">expected_state</span><span class="o">=</span><span class="s">&#39;OPEN&#39;</span><span class="p">):</span>
+        <span class="c"># This may happen if a user attempts to write on a closed connection.</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">state</span> <span class="o">!=</span> <span class="n">expected_state</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">InvalidState</span><span class="p">(</span><span class="s">&quot;Cannot write to a WebSocket &quot;</span>
+                               <span class="s">&quot;in the {} state&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">state</span><span class="p">))</span>
+        <span class="n">frame</span> <span class="o">=</span> <span class="n">Frame</span><span class="p">(</span><span class="bp">True</span><span class="p">,</span> <span class="n">opcode</span><span class="p">,</span> <span class="n">data</span><span class="p">)</span>
+        <span class="n">side</span> <span class="o">=</span> <span class="s">&#39;client&#39;</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_client</span> <span class="k">else</span> <span class="s">&#39;server&#39;</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s">&quot;</span><span class="si">%s</span><span class="s"> &gt;&gt; </span><span class="si">%s</span><span class="s">&quot;</span><span class="p">,</span> <span class="n">side</span><span class="p">,</span> <span class="n">frame</span><span class="p">)</span>
+        <span class="n">is_masked</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_client</span>
+        <span class="n">write_frame</span><span class="p">(</span><span class="n">frame</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">transport</span><span class="o">.</span><span class="n">write</span><span class="p">,</span> <span class="n">is_masked</span><span class="p">)</span>
+
+    <span class="nd">@tulip.coroutine</span>
+    <span class="k">def</span> <span class="nf">close_connection</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="c"># 7.1.1. Close the WebSocket Connection</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">state</span> <span class="o">==</span> <span class="s">&#39;CLOSED&#39;</span><span class="p">:</span>
+            <span class="k">return</span>
+
+        <span class="c"># Defensive assertion for protocol compliance.</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">state</span> <span class="o">!=</span> <span class="s">&#39;CLOSING&#39;</span><span class="p">:</span>                         <span class="c"># pragma: no cover</span>
+            <span class="k">raise</span> <span class="n">InvalidState</span><span class="p">(</span><span class="s">&quot;Cannot close a WebSocket connection &quot;</span>
+                               <span class="s">&quot;in the {} state&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">state</span><span class="p">))</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_client</span><span class="p">:</span>
+            <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">conn_lost_alarm</span> <span class="ow">is</span> <span class="bp">None</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">conn_lost_alarm</span> <span class="o">=</span> <span class="n">tulip</span><span class="o">.</span><span class="n">Future</span><span class="p">(</span><span class="n">timeout</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">timeout</span><span class="p">)</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="k">yield from</span> <span class="bp">self</span><span class="o">.</span><span class="n">conn_lost_alarm</span>
+            <span class="k">except</span> <span class="n">tulip</span><span class="o">.</span><span class="n">CancelledError</span><span class="p">:</span>
+                <span class="k">pass</span>
+            <span class="k">finally</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">conn_lost_alarm</span> <span class="o">=</span> <span class="bp">None</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">state</span> <span class="o">!=</span> <span class="s">&#39;CLOSED&#39;</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">transport</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">transport</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+
+    <span class="nd">@tulip.coroutine</span>
+    <span class="k">def</span> <span class="nf">fail_connection</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">code</span><span class="o">=</span><span class="mi">1011</span><span class="p">,</span> <span class="n">reason</span><span class="o">=</span><span class="s">&#39;&#39;</span><span class="p">):</span>
+        <span class="c"># Losing the connection usually results in a protocol error.</span>
+        <span class="c"># Preserve the original error code in this case.</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">close_code</span> <span class="o">!=</span> <span class="mi">1006</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">close_code</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">close_reason</span> <span class="o">=</span> <span class="n">code</span><span class="p">,</span> <span class="n">reason</span>
+        <span class="c"># 7.1.7. Fail the WebSocket Connection</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s">&quot;Failing the WebSocket connection: </span><span class="si">%d</span><span class="s"> </span><span class="si">%s</span><span class="s">&quot;</span><span class="p">,</span> <span class="n">code</span><span class="p">,</span> <span class="n">reason</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">state</span> <span class="o">==</span> <span class="s">&#39;OPEN&#39;</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">write_frame</span><span class="p">(</span><span class="n">OP_CLOSE</span><span class="p">,</span> <span class="n">serialize_close</span><span class="p">(</span><span class="n">code</span><span class="p">,</span> <span class="n">reason</span><span class="p">))</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">state</span> <span class="o">=</span> <span class="s">&#39;CLOSING&#39;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">closing_handshake</span><span class="o">.</span><span class="n">done</span><span class="p">():</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">closing_handshake</span><span class="o">.</span><span class="n">set_result</span><span class="p">(</span><span class="bp">False</span><span class="p">)</span>
+        <span class="k">yield from</span> <span class="bp">self</span><span class="o">.</span><span class="n">close_connection</span><span class="p">()</span>
+
+    <span class="c"># Tulip Protocol methods</span>
+
+    <span class="k">def</span> <span class="nf">connection_made</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">transport</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">transport</span> <span class="o">=</span> <span class="n">transport</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">stream</span> <span class="o">=</span> <span class="n">tulip</span><span class="o">.</span><span class="n">StreamReader</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">conn_lost_alarm</span> <span class="o">=</span> <span class="bp">None</span>
+
+    <span class="k">def</span> <span class="nf">data_received</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">stream</span><span class="o">.</span><span class="n">feed_data</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">eof_received</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">stream</span><span class="o">.</span><span class="n">feed_eof</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">transport</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">connection_lost</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">exc</span><span class="p">):</span>
+        <span class="c"># 7.1.4. The WebSocket Connection is Closed</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">state</span> <span class="o">=</span> <span class="s">&#39;CLOSED&#39;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">conn_lost_alarm</span> <span class="ow">and</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">conn_lost_alarm</span><span class="o">.</span><span class="n">done</span><span class="p">():</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">conn_lost_alarm</span><span class="o">.</span><span class="n">set_result</span><span class="p">(</span><span class="bp">None</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">close_code</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">close_code</span> <span class="o">=</span> <span class="mi">1006</span></div>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li><a href="../../index.html">websockets 0.1 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >Module code</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2013, Aymeric Augustin.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2b1.
+    </div>
+  </body>
+</html>

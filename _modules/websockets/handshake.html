@@ -82,7 +82,6 @@
 <span class="sd">&quot;&quot;&quot;</span>
 
 <span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span>
-    <span class="s">&#39;InvalidHandshake&#39;</span><span class="p">,</span>
     <span class="s">&#39;build_request&#39;</span><span class="p">,</span> <span class="s">&#39;check_request&#39;</span><span class="p">,</span>
     <span class="s">&#39;build_response&#39;</span><span class="p">,</span> <span class="s">&#39;check_response&#39;</span><span class="p">,</span>
 <span class="p">]</span>
@@ -91,14 +90,12 @@
 <span class="kn">import</span> <span class="nn">hashlib</span>
 <span class="kn">import</span> <span class="nn">random</span>
 
+<span class="kn">from</span> <span class="nn">.exceptions</span> <span class="kn">import</span> <span class="n">InvalidHandshake</span>
+
 
 <span class="n">GUID</span> <span class="o">=</span> <span class="s">&quot;258EAFA5-E914-47DA-95CA-C5AB0DC85B11&quot;</span>
 
 
-<div class="viewcode-block" id="InvalidHandshake"><a class="viewcode-back" href="../../index.html#websockets.handshake.InvalidHandshake">[docs]</a><span class="k">class</span> <span class="nc">InvalidHandshake</span><span class="p">(</span><span class="ne">Exception</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Exception raised when a handshake request or response is invalid.&quot;&quot;&quot;</span>
-
-</div>
 <div class="viewcode-block" id="build_request"><a class="viewcode-back" href="../../index.html#websockets.handshake.build_request">[docs]</a><span class="k">def</span> <span class="nf">build_request</span><span class="p">(</span><span class="n">set_header</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Build a handshake request to send to the server.</span>
