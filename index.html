@@ -49,13 +49,15 @@
 <p><tt class="docutils literal"><span class="pre">websockets</span></tt> is an implementation of <a class="reference external" href="http://tools.ietf.org/html/rfc6455">RFC 6455</a>, the WebSocket protocol,
 with a focus on simplicity and correctness.</p>
 <p>It relies on the <a class="reference external" href="http://code.google.com/p/tulip/">Tulip</a> library, which will become the standard for
-<a class="reference external" href="http://www.python.org/dev/peps/pep-3156/">asynchronous IO</a> in future versions of Python, and requires Python ≥ 3.3.</p>
+<a class="reference external" href="http://www.python.org/dev/peps/pep-3156/">asynchronous I/O</a> in future versions of Python, and requires Python ≥ 3.3.</p>
 <p>You can download the code and report issues <a class="reference external" href="https://github.com/aaugustin/websockets">on GitHub</a>.</p>
 <div class="section" id="example">
 <h2>Example<a class="headerlink" href="#example" title="Permalink to this headline">¶</a></h2>
 <p id="server-example">Here&#8217;s a WebSocket server example. It reads a name from the client and sends a
 greeting.</p>
-<div class="highlight-python"><div class="highlight"><pre><span class="kn">import</span> <span class="nn">tulip</span>
+<div class="highlight-python"><div class="highlight"><pre><span class="c">#!/usr/bin/env python</span>
+
+<span class="kn">import</span> <span class="nn">tulip</span>
 <span class="kn">import</span> <span class="nn">websockets</span>
 
 <span class="nd">@tulip.coroutine</span>
@@ -66,8 +68,9 @@ greeting.</p>
     <span class="k">print</span><span class="p">(</span><span class="s">&quot;&gt; {}&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">greeting</span><span class="p">))</span>
     <span class="n">websocket</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="n">greeting</span><span class="p">)</span>
 
-<span class="n">websockets</span><span class="o">.</span><span class="n">serve</span><span class="p">(</span><span class="n">hello</span><span class="p">,</span> <span class="s">&#39;localhost&#39;</span><span class="p">,</span> <span class="mi">8765</span><span class="p">)</span>
+<span class="n">start_server</span> <span class="o">=</span> <span class="n">websockets</span><span class="o">.</span><span class="n">serve</span><span class="p">(</span><span class="n">hello</span><span class="p">,</span> <span class="s">&#39;localhost&#39;</span><span class="p">,</span> <span class="mi">8765</span><span class="p">)</span>
 
+<span class="n">tulip</span><span class="o">.</span><span class="n">get_event_loop</span><span class="p">()</span><span class="o">.</span><span class="n">run_until_complete</span><span class="p">(</span><span class="n">start_server</span><span class="p">)</span>
 <span class="n">tulip</span><span class="o">.</span><span class="n">get_event_loop</span><span class="p">()</span><span class="o">.</span><span class="n">run_forever</span><span class="p">()</span>
 </pre></div>
 </div>
@@ -79,7 +82,9 @@ returns. If you want to process several messages in the same connection,
 you must write a loop, most likely with <a class="reference internal" href="#websockets.protocol.WebSocketCommonProtocol.open" title="websockets.protocol.WebSocketCommonProtocol.open"><tt class="xref py py-attr docutils literal"><span class="pre">websocket.open</span></tt></a>.</p>
 </div>
 <p id="client-example">Here&#8217;s a corresponding client example.</p>
-<div class="highlight-python"><div class="highlight"><pre><span class="kn">import</span> <span class="nn">tulip</span>
+<div class="highlight-python"><div class="highlight"><pre><span class="c">#!/usr/bin/env python</span>
+
+<span class="kn">import</span> <span class="nn">tulip</span>
 <span class="kn">import</span> <span class="nn">websockets</span>
 
 <span class="nd">@tulip.coroutine</span>
@@ -121,7 +126,7 @@ in this document is a private API.</p>
 <dl class="function">
 <dt id="websockets.server.serve">
 <tt class="descclassname">websockets.server.</tt><tt class="descname">serve</tt><big>(</big><em>ws_handler</em>, <em>host=None</em>, <em>port=None</em>, <em>**kwargs</em><big>)</big><a class="reference internal" href="_modules/websockets/server.html#serve"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#websockets.server.serve" title="Permalink to this definition">¶</a></dt>
-<dd><p>This task starts a WebSocket server.</p>
+<dd><p>This coroutine creates a WebSocket server.</p>
 <p>It&#8217;s a thin wrapper around the event loop&#8217;s <tt class="docutils literal"><span class="pre">start_serving</span></tt> method.</p>
 <p><cite>ws_handler</cite> is the WebSocket handler. It must be a coroutine accepting
 two arguments: a <a class="reference internal" href="#websockets.server.WebSocketServerProtocol" title="websockets.server.WebSocketServerProtocol"><tt class="xref py py-class docutils literal"><span class="pre">WebSocketServerProtocol</span></tt></a> and
@@ -166,7 +171,8 @@ then be used to send and receive messages.</p>
 <p>It raises <tt class="xref py py-exc docutils literal"><span class="pre">InvalidURI</span></tt> if <cite>uri</cite> is invalid and
 <tt class="xref py py-exc docutils literal"><span class="pre">InvalidHandshake</span></tt> if the handshake fails.</p>
 <p>Clients shouldn&#8217;t close the WebSocket connection. Instead, they should
-wait until the server performs the closing handshake.</p>
+wait until the server performs the closing handshake by yielding from the
+protocol&#8217;s <tt class="xref py py-attr docutils literal"><span class="pre">worker</span></tt> attribute.</p>
 <p><a class="reference internal" href="#websockets.client.connect" title="websockets.client.connect"><tt class="xref py py-func docutils literal"><span class="pre">connect()</span></tt></a> implements the sequence called &#8220;Establish a WebSocket
 Connection&#8221; in RFC 6455, except for the following requirements:</p>
 <ul class="simple">
@@ -198,9 +204,9 @@ frames as specified in <a class="reference external" href="http://tools.ietf.org
 <dt id="websockets.protocol.WebSocketCommonProtocol">
 <em class="property">class </em><tt class="descclassname">websockets.protocol.</tt><tt class="descname">WebSocketCommonProtocol</tt><big>(</big><em>self</em>, <em>timeout=10</em><big>)</big><a class="reference internal" href="_modules/websockets/protocol.html#WebSocketCommonProtocol"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#websockets.protocol.WebSocketCommonProtocol" title="Permalink to this definition">¶</a></dt>
 <dd><p>This class implements common parts of the WebSocket protocol.</p>
-<p>It assumes that the WebSocket connection is established. It runs a task
+<p>It assumes that the WebSocket connection is established. It runs a Task
 that stores incoming data frames in a queue and deals with control frames
-automatically. It sends outgoing data frames and performs with the closing
+automatically. It sends outgoing data frames and performs the closing
 handshake.</p>
 <p>The <cite>timeout</cite> parameter defines the maximum wait time in seconds for
 completing the closing handshake and for terminating the TCP connection.
@@ -217,20 +223,18 @@ client-side behavior, set the class attribute <tt class="docutils literal"><span
 <dt id="websockets.protocol.WebSocketCommonProtocol.open">
 <tt class="descname">open</tt><a class="reference internal" href="_modules/websockets/protocol.html#WebSocketCommonProtocol.open"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#websockets.protocol.WebSocketCommonProtocol.open" title="Permalink to this definition">¶</a></dt>
 <dd><p>This property is <tt class="docutils literal"><span class="pre">True</span></tt> when the connection is usable.</p>
-<p>It can be used to write loops on the server side and handle
-disconnections gracefully:</p>
-<div class="highlight-python"><pre>while websocket.open:
-    # ...</pre>
-</div>
+<p>It may be used to handle disconnections gracefully.</p>
 </dd></dl>
 
 <dl class="method">
 <dt id="websockets.protocol.WebSocketCommonProtocol.close">
 <tt class="descname">close</tt><big>(</big><em>code=1000</em>, <em>reason=''</em><big>)</big><a class="reference internal" href="_modules/websockets/protocol.html#WebSocketCommonProtocol.close"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#websockets.protocol.WebSocketCommonProtocol.close" title="Permalink to this definition">¶</a></dt>
-<dd><p>This task performs the closing handshake.</p>
+<dd><p>This coroutine performs the closing handshake.</p>
 <p>This is the expected way to terminate a connection on the server side.</p>
 <p>It waits for the other end to complete the handshake. It doesn&#8217;t do
 anything once the connection is closed.</p>
+<p>It&#8217;s usually safe to wrap this coroutine in <tt class="docutils literal"><span class="pre">tulip.async()</span></tt> since
+errors during connection termination aren&#8217;t particularly useful.</p>
 <p>The <cite>code</cite> must be an <tt class="xref py py-class docutils literal"><span class="pre">int</span></tt> and the <cite>reason</cite> a <a class="reference external" href="http://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.3)"><tt class="xref py py-class docutils literal"><span class="pre">str</span></tt></a>.</p>
 </dd></dl>
 
@@ -258,10 +262,10 @@ frame.</p>
 <dl class="method">
 <dt id="websockets.protocol.WebSocketCommonProtocol.ping">
 <tt class="descname">ping</tt><big>(</big><em>data=None</em><big>)</big><a class="reference internal" href="_modules/websockets/protocol.html#WebSocketCommonProtocol.ping"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#websockets.protocol.WebSocketCommonProtocol.ping" title="Permalink to this definition">¶</a></dt>
-<dd><p>This coroutine sends a ping and waits for the corresponding pong.</p>
+<dd><p>This function sends a ping.</p>
+<p>It returns a Future which will be completed when the corresponding
+pong is received and which you may ignore if you don&#8217;t want to wait.</p>
 <p>A ping may serve as a keepalive.</p>
-<p>Since it&#8217;s implemented as a task, you can simply call it as a function
-if you don&#8217;t need to wait.</p>
 </dd></dl>
 
 <dl class="method">
