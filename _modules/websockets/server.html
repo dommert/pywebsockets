@@ -6,7 +6,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>websockets.server &mdash; websockets 2.0.0 documentation</title>
+    <title>websockets.server &mdash; websockets 2.1.0 documentation</title>
     
     <link rel="stylesheet" href="../../_static/pydoctheme.css" type="text/css" />
     <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
@@ -14,7 +14,7 @@
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    '../../',
-        VERSION:     '2.0.0',
+        VERSION:     '2.1.0',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -23,7 +23,7 @@
     <script type="text/javascript" src="../../_static/jquery.js"></script>
     <script type="text/javascript" src="../../_static/underscore.js"></script>
     <script type="text/javascript" src="../../_static/doctools.js"></script>
-    <link rel="top" title="websockets 2.0.0 documentation" href="../../index.html" />
+    <link rel="top" title="websockets 2.1.0 documentation" href="../../index.html" />
     <link rel="up" title="Module code" href="../index.html" /> 
   </head>
   <body>
@@ -36,7 +36,7 @@
         <li class="right" >
           <a href="../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li><a href="../../index.html">websockets 2.0.0 documentation</a> &raquo;</li>
+        <li><a href="../../index.html">websockets 2.1.0 documentation</a> &raquo;</li>
           <li><a href="../index.html" accesskey="U">Module code</a> &raquo;</li> 
       </ul>
     </div>  
@@ -74,14 +74,14 @@
 <span class="sd">    :class:`~websockets.protocol.WebSocketCommonProtocol`.</span>
 
 <span class="sd">    For the sake of simplicity, this protocol doesn&#39;t inherit a proper HTTP</span>
-<span class="sd">    implementation, and it doesn&#39;t send appropriate HTTP responses when</span>
-<span class="sd">    something goes wrong.</span>
+<span class="sd">    implementation. Its support for HTTP responses is very limited.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="n">state</span> <span class="o">=</span> <span class="s">&#39;CONNECTING&#39;</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ws_handler</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ws_handler</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">origins</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">ws_handler</span> <span class="o">=</span> <span class="n">ws_handler</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">origins</span> <span class="o">=</span> <span class="n">origins</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">__init__</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">connection_made</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">transport</span><span class="p">):</span>
@@ -90,50 +90,80 @@
 
     <span class="nd">@asyncio.coroutine</span>
     <span class="k">def</span> <span class="nf">handler</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="c"># Since this method doesn&#39;t have a caller able to handle exceptions,</span>
+        <span class="c"># it attemps to log relevant ones and close the connection properly.</span>
         <span class="k">try</span><span class="p">:</span>
-            <span class="n">uri</span> <span class="o">=</span> <span class="k">yield from</span> <span class="bp">self</span><span class="o">.</span><span class="n">handshake</span><span class="p">()</span>
-        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
-            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s">&quot;Exception in opening handshake: {}&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">exc</span><span class="p">))</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">writer</span><span class="o">.</span><span class="n">write_eof</span><span class="p">()</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">writer</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
-            <span class="k">return</span>
 
-        <span class="k">try</span><span class="p">:</span>
-            <span class="k">yield from</span> <span class="bp">self</span><span class="o">.</span><span class="n">ws_handler</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">uri</span><span class="p">)</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">path</span> <span class="o">=</span> <span class="k">yield from</span> <span class="bp">self</span><span class="o">.</span><span class="n">handshake</span><span class="p">(</span><span class="n">origins</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">origins</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s">&quot;Exception in opening handshake: {}&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">exc</span><span class="p">))</span>
+                <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">exc</span><span class="p">,</span> <span class="n">InvalidHandshake</span><span class="p">):</span>
+                    <span class="n">response</span> <span class="o">=</span> <span class="s">&#39;HTTP/1.1 400 Bad Request</span><span class="se">\r\n\r\n</span><span class="s">&#39;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">exc</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">response</span> <span class="o">=</span> <span class="p">(</span><span class="s">&#39;HTTP/1.1 500 Internal Server Error</span><span class="se">\r\n\r\n</span><span class="s">&#39;</span>
+                                <span class="s">&#39;See server log for more information.&#39;</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">writer</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">response</span><span class="o">.</span><span class="n">encode</span><span class="p">())</span>
+                <span class="k">raise</span>
+
+            <span class="k">try</span><span class="p">:</span>
+                <span class="k">yield from</span> <span class="bp">self</span><span class="o">.</span><span class="n">ws_handler</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s">&quot;Exception in connection handler&quot;</span><span class="p">,</span> <span class="n">exc_info</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+                <span class="k">yield from</span> <span class="bp">self</span><span class="o">.</span><span class="n">fail_connection</span><span class="p">(</span><span class="mi">1011</span><span class="p">)</span>
+                <span class="k">raise</span>
+
+            <span class="k">try</span><span class="p">:</span>
+                <span class="k">yield from</span> <span class="bp">self</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s">&quot;Exception in closing handshake: {}&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">exc</span><span class="p">))</span>
+                <span class="k">raise</span>
+
         <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
-            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s">&quot;Exception in connection handler&quot;</span><span class="p">,</span> <span class="n">exc_info</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
-            <span class="k">yield from</span> <span class="bp">self</span><span class="o">.</span><span class="n">fail_connection</span><span class="p">(</span><span class="mi">1011</span><span class="p">)</span>
-            <span class="k">return</span>
+            <span class="c"># Last-ditch attempt to avoid leaking connections on errors.</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">writer</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+            <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>                               <span class="c"># pragma: no cover</span>
+                <span class="k">pass</span>
 
-        <span class="k">try</span><span class="p">:</span>
-            <span class="k">yield from</span> <span class="bp">self</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
-        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
-            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s">&quot;Exception in closing handshake: {}&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">exc</span><span class="p">))</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">writer</span><span class="o">.</span><span class="n">write_eof</span><span class="p">()</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">writer</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
-            <span class="k">return</span>
+
 
     <span class="nd">@asyncio.coroutine</span>
-<div class="viewcode-block" id="WebSocketServerProtocol.handshake"><a class="viewcode-back" href="../../index.html#websockets.server.WebSocketServerProtocol.handshake">[docs]</a>    <span class="k">def</span> <span class="nf">handshake</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<div class="viewcode-block" id="WebSocketServerProtocol.handshake"><a class="viewcode-back" href="../../index.html#websockets.server.WebSocketServerProtocol.handshake">[docs]</a>    <span class="k">def</span> <span class="nf">handshake</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">origins</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Perform the server side of the opening handshake.</span>
+
+<span class="sd">        If provided, ``origins`` is a list of acceptable HTTP Origin values.</span>
+<span class="sd">        Include ``&#39;&#39;`` in the list if the lack of an origin is acceptable.</span>
 
 <span class="sd">        Return the URI of the request.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="c"># Read handshake request.</span>
         <span class="k">try</span><span class="p">:</span>
-            <span class="n">uri</span><span class="p">,</span> <span class="n">headers</span> <span class="o">=</span> <span class="k">yield from</span> <span class="n">read_request</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">reader</span><span class="p">)</span>
+            <span class="n">path</span><span class="p">,</span> <span class="n">headers</span> <span class="o">=</span> <span class="k">yield from</span> <span class="n">read_request</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">reader</span><span class="p">)</span>
         <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
             <span class="k">raise</span> <span class="n">InvalidHandshake</span><span class="p">(</span><span class="s">&quot;Malformed HTTP message&quot;</span><span class="p">)</span> <span class="kn">from</span> <span class="nn">exc</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">raw_request_headers</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">headers</span><span class="o">.</span><span class="n">raw_items</span><span class="p">())</span>
         <span class="n">get_header</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">k</span><span class="p">:</span> <span class="n">headers</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="s">&#39;&#39;</span><span class="p">)</span>
         <span class="n">key</span> <span class="o">=</span> <span class="n">check_request</span><span class="p">(</span><span class="n">get_header</span><span class="p">)</span>
 
-        <span class="c"># Send handshake response. Since the headers only contain ASCII</span>
-        <span class="c"># characters, we can keep this simple.</span>
-        <span class="n">response</span> <span class="o">=</span> <span class="p">[</span><span class="s">&#39;HTTP/1.1 101 Switching Protocols&#39;</span><span class="p">]</span>
-        <span class="n">set_header</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span><span class="p">:</span> <span class="n">response</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s">&#39;{}: {}&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="n">v</span><span class="p">))</span>
+        <span class="c"># Check origin in request.</span>
+        <span class="k">if</span> <span class="n">origins</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="n">origin</span> <span class="o">=</span> <span class="n">get_header</span><span class="p">(</span><span class="s">&#39;Origin&#39;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">set</span><span class="p">(</span><span class="n">origin</span><span class="o">.</span><span class="n">split</span><span class="p">()</span> <span class="ow">or</span> <span class="p">(</span><span class="s">&#39;&#39;</span><span class="p">,))</span><span class="o">&lt;=</span> <span class="nb">set</span><span class="p">(</span><span class="n">origins</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="n">InvalidHandshake</span><span class="p">(</span><span class="s">&quot;Bad origin: {}&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">origin</span><span class="p">))</span>
+
+        <span class="n">headers</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">set_header</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span><span class="p">:</span> <span class="n">headers</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">k</span><span class="p">,</span> <span class="n">v</span><span class="p">))</span>
         <span class="n">set_header</span><span class="p">(</span><span class="s">&#39;Server&#39;</span><span class="p">,</span> <span class="n">USER_AGENT</span><span class="p">)</span>
         <span class="n">build_response</span><span class="p">(</span><span class="n">set_header</span><span class="p">,</span> <span class="n">key</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">raw_response_headers</span> <span class="o">=</span> <span class="n">headers</span>
+
+        <span class="c"># Send handshake response. Since the status line and headers only</span>
+        <span class="c"># contain ASCII characters, we can keep this simple.</span>
+        <span class="n">response</span> <span class="o">=</span> <span class="p">[</span><span class="s">&#39;HTTP/1.1 101 Switching Protocols&#39;</span><span class="p">]</span>
+        <span class="n">response</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="s">&#39;{}: {}&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">headers</span><span class="p">)</span>
         <span class="n">response</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s">&#39;</span><span class="se">\r\n</span><span class="s">&#39;</span><span class="p">)</span>
         <span class="n">response</span> <span class="o">=</span> <span class="s">&#39;</span><span class="se">\r\n</span><span class="s">&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">response</span><span class="p">)</span><span class="o">.</span><span class="n">encode</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">writer</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">response</span><span class="p">)</span>
@@ -141,25 +171,24 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">state</span> <span class="o">=</span> <span class="s">&#39;OPEN&#39;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">opening_handshake</span><span class="o">.</span><span class="n">set_result</span><span class="p">(</span><span class="bp">True</span><span class="p">)</span>
 
-        <span class="k">return</span> <span class="n">uri</span>
+        <span class="k">return</span> <span class="n">path</span>
 
 </div></div>
 <span class="nd">@asyncio.coroutine</span>
 <div class="viewcode-block" id="serve"><a class="viewcode-back" href="../../index.html#websockets.server.serve">[docs]</a><span class="k">def</span> <span class="nf">serve</span><span class="p">(</span><span class="n">ws_handler</span><span class="p">,</span> <span class="n">host</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">port</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span>
-          <span class="n">klass</span><span class="o">=</span><span class="n">WebSocketServerProtocol</span><span class="p">,</span> <span class="o">**</span><span class="n">kwds</span><span class="p">):</span>
+          <span class="n">klass</span><span class="o">=</span><span class="n">WebSocketServerProtocol</span><span class="p">,</span> <span class="n">origins</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwds</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    This coroutine creates a WebSocket server.</span>
 
-<span class="sd">    It&#39;s a thin wrapper around the event loop&#39;s ``create_server`` method.</span>
-<span class="sd">    ``host``, ``port`` as well as extra keyword arguments are passed to</span>
-<span class="sd">    ``create_server``.</span>
-
-<span class="sd">    It returns a ``Server`` object with a ``close`` method to stop the server.</span>
+<span class="sd">    It&#39;s a thin wrapper around the event loop&#39;s `create_server` method.</span>
+<span class="sd">    `host`, `port` as well as extra keyword arguments are passed to</span>
+<span class="sd">    `create_server`.</span>
 
 <span class="sd">    `ws_handler` is the WebSocket handler. It must be a coroutine accepting</span>
 <span class="sd">    two arguments: a :class:`~websockets.server.WebSocketServerProtocol` and</span>
-<span class="sd">    the request URI. The `host` and `port` arguments and other keyword</span>
-<span class="sd">    arguments are passed to ``create_server``.</span>
+<span class="sd">    the request URI. `origin` is a list of acceptable Origin HTTP headers.</span>
+
+<span class="sd">    It returns a `Server` object with a `close` method to stop the server.</span>
 
 <span class="sd">    Whenever a client connects, the server accepts the connection, creates a</span>
 <span class="sd">    :class:`~websockets.server.WebSocketServerProtocol`, performs the opening</span>
@@ -167,8 +196,11 @@
 <span class="sd">    completes, the server performs the closing handshake and closes the</span>
 <span class="sd">    connection.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">secure</span> <span class="o">=</span> <span class="n">kwds</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s">&#39;ssl&#39;</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span>
+    <span class="n">factory</span> <span class="o">=</span> <span class="k">lambda</span><span class="p">:</span> <span class="n">klass</span><span class="p">(</span><span class="n">ws_handler</span><span class="p">,</span>
+                            <span class="n">host</span><span class="o">=</span><span class="n">host</span><span class="p">,</span> <span class="n">port</span><span class="o">=</span><span class="n">port</span><span class="p">,</span> <span class="n">secure</span><span class="o">=</span><span class="n">secure</span><span class="p">,</span> <span class="n">origins</span><span class="o">=</span><span class="n">origins</span><span class="p">)</span>
     <span class="k">return</span> <span class="p">(</span><span class="k">yield from</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">get_event_loop</span><span class="p">()</span><span class="o">.</span><span class="n">create_server</span><span class="p">(</span>
-            <span class="k">lambda</span><span class="p">:</span> <span class="n">klass</span><span class="p">(</span><span class="n">ws_handler</span><span class="p">),</span> <span class="n">host</span><span class="p">,</span> <span class="n">port</span><span class="p">,</span> <span class="o">**</span><span class="n">kwds</span><span class="p">))</span></div>
+            <span class="n">factory</span><span class="p">,</span> <span class="n">host</span><span class="p">,</span> <span class="n">port</span><span class="p">,</span> <span class="o">**</span><span class="n">kwds</span><span class="p">))</span></div>
 </pre></div>
 
           </div>
@@ -202,7 +234,7 @@
         <li class="right" >
           <a href="../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li><a href="../../index.html">websockets 2.0.0 documentation</a> &raquo;</li>
+        <li><a href="../../index.html">websockets 2.1.0 documentation</a> &raquo;</li>
           <li><a href="../index.html" >Module code</a> &raquo;</li> 
       </ul>
     </div>

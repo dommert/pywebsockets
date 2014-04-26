@@ -6,7 +6,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>websockets.http &mdash; websockets 2.0.0 documentation</title>
+    <title>websockets.http &mdash; websockets 2.1.0 documentation</title>
     
     <link rel="stylesheet" href="../../_static/pydoctheme.css" type="text/css" />
     <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
@@ -14,7 +14,7 @@
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    '../../',
-        VERSION:     '2.0.0',
+        VERSION:     '2.1.0',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -23,7 +23,7 @@
     <script type="text/javascript" src="../../_static/jquery.js"></script>
     <script type="text/javascript" src="../../_static/underscore.js"></script>
     <script type="text/javascript" src="../../_static/doctools.js"></script>
-    <link rel="top" title="websockets 2.0.0 documentation" href="../../index.html" />
+    <link rel="top" title="websockets 2.1.0 documentation" href="../../index.html" />
     <link rel="up" title="Module code" href="../index.html" /> 
   </head>
   <body>
@@ -36,7 +36,7 @@
         <li class="right" >
           <a href="../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li><a href="../../index.html">websockets 2.0.0 documentation</a> &raquo;</li>
+        <li><a href="../../index.html">websockets 2.1.0 documentation</a> &raquo;</li>
           <li><a href="../index.html" accesskey="U">Module code</a> &raquo;</li> 
       </ul>
     </div>  
@@ -81,20 +81,20 @@
     <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Read an HTTP/1.1 request from `stream`.</span>
 
-<span class="sd">    Return `(uri, headers)` where `uri` is a :class:`str` and `headers`</span>
-<span class="sd">    is a :class:`~email.message.Message`; `uri` isn&#39;t URL-decoded.</span>
+<span class="sd">    Return `(path, headers)` where `path` is a :class:`str` and `headers` is a</span>
+<span class="sd">    :class:`~email.message.Message`; `path` isn&#39;t URL-decoded.</span>
 
 <span class="sd">    Raise an exception if the request isn&#39;t well formatted.</span>
 
 <span class="sd">    The request is assumed not to contain a body.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">request_line</span><span class="p">,</span> <span class="n">headers</span> <span class="o">=</span> <span class="k">yield from</span> <span class="n">read_message</span><span class="p">(</span><span class="n">stream</span><span class="p">)</span>
-    <span class="n">method</span><span class="p">,</span> <span class="n">uri</span><span class="p">,</span> <span class="n">version</span> <span class="o">=</span> <span class="n">request_line</span><span class="p">[:</span><span class="o">-</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">decode</span><span class="p">()</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="bp">None</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+    <span class="n">method</span><span class="p">,</span> <span class="n">path</span><span class="p">,</span> <span class="n">version</span> <span class="o">=</span> <span class="n">request_line</span><span class="p">[:</span><span class="o">-</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">decode</span><span class="p">()</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="bp">None</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">method</span> <span class="o">!=</span> <span class="s">&#39;GET&#39;</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s">&quot;Unsupported method&quot;</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">version</span> <span class="o">!=</span> <span class="s">&#39;HTTP/1.1&#39;</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s">&quot;Unsupported HTTP version&quot;</span><span class="p">)</span>
-    <span class="k">return</span> <span class="n">uri</span><span class="p">,</span> <span class="n">headers</span>
+    <span class="k">return</span> <span class="n">path</span><span class="p">,</span> <span class="n">headers</span>
 
 </div>
 <span class="nd">@asyncio.coroutine</span>
@@ -102,8 +102,8 @@
     <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Read an HTTP/1.1 response from `stream`.</span>
 
-<span class="sd">    Return `(status, headers)` where `status` is a :class:`int` and</span>
-<span class="sd">    `headers` is a :class:`~email.message.Message`.</span>
+<span class="sd">    Return `(status, headers)` where `status` is a :class:`int` and `headers`</span>
+<span class="sd">    is a :class:`~email.message.Message`.</span>
 
 <span class="sd">    Raise an exception if the request isn&#39;t well formatted.</span>
 
@@ -121,8 +121,8 @@
     <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Read an HTTP message from `stream`.</span>
 
-<span class="sd">    Return `(start_line, headers)` where `start_line` is :class:`bytes`</span>
-<span class="sd">    and `headers` is a :class:`~email.message.Message`.</span>
+<span class="sd">    Return `(start_line, headers)` where `start_line` is :class:`bytes` and</span>
+<span class="sd">    `headers` is a :class:`~email.message.Message`.</span>
 
 <span class="sd">    The message is assumed not to contain a body.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
@@ -184,7 +184,7 @@
         <li class="right" >
           <a href="../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li><a href="../../index.html">websockets 2.0.0 documentation</a> &raquo;</li>
+        <li><a href="../../index.html">websockets 2.1.0 documentation</a> &raquo;</li>
           <li><a href="../index.html" >Module code</a> &raquo;</li> 
       </ul>
     </div>

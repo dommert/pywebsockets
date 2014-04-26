@@ -6,7 +6,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>websockets.protocol &mdash; websockets 2.0.0 documentation</title>
+    <title>websockets.protocol &mdash; websockets 2.1.0 documentation</title>
     
     <link rel="stylesheet" href="../../_static/pydoctheme.css" type="text/css" />
     <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
@@ -14,7 +14,7 @@
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    '../../',
-        VERSION:     '2.0.0',
+        VERSION:     '2.1.0',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -23,7 +23,7 @@
     <script type="text/javascript" src="../../_static/jquery.js"></script>
     <script type="text/javascript" src="../../_static/underscore.js"></script>
     <script type="text/javascript" src="../../_static/doctools.js"></script>
-    <link rel="top" title="websockets 2.0.0 documentation" href="../../index.html" />
+    <link rel="top" title="websockets 2.1.0 documentation" href="../../index.html" />
     <link rel="up" title="Module code" href="../index.html" /> 
   </head>
   <body>
@@ -36,7 +36,7 @@
         <li class="right" >
           <a href="../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li><a href="../../index.html">websockets 2.0.0 documentation</a> &raquo;</li>
+        <li><a href="../../index.html">websockets 2.1.0 documentation</a> &raquo;</li>
           <li><a href="../index.html" accesskey="U">Module code</a> &raquo;</li> 
       </ul>
     </div>  
@@ -86,6 +86,9 @@
 <span class="sd">    control frames automatically. It sends outgoing data frames and performs</span>
 <span class="sd">    the closing handshake.</span>
 
+<span class="sd">    The `host`, `port` and `secure` parameters are simply stored as attributes</span>
+<span class="sd">    for handlers that need them.</span>
+
 <span class="sd">    The `timeout` parameter defines the maximum wait time in seconds for</span>
 <span class="sd">    completing the closing handshake and, only on the client side, for</span>
 <span class="sd">    terminating the TCP connection. :meth:`close()` will complete in at most</span>
@@ -103,8 +106,14 @@
     <span class="n">is_client</span> <span class="o">=</span> <span class="bp">False</span>
     <span class="n">state</span> <span class="o">=</span> <span class="s">&#39;OPEN&#39;</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">loop</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span>
+                 <span class="n">host</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">port</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">secure</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">loop</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">host</span> <span class="o">=</span> <span class="n">host</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">port</span> <span class="o">=</span> <span class="n">port</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">secure</span> <span class="o">=</span> <span class="n">secure</span>
+
         <span class="bp">self</span><span class="o">.</span><span class="n">timeout</span> <span class="o">=</span> <span class="n">timeout</span>
+
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">__init__</span><span class="p">(</span><span class="n">asyncio</span><span class="o">.</span><span class="n">StreamReader</span><span class="p">(),</span> <span class="bp">self</span><span class="o">.</span><span class="n">client_connected</span><span class="p">,</span> <span class="n">loop</span><span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">close_code</span> <span class="o">=</span> <span class="bp">None</span>
@@ -150,7 +159,7 @@
 <span class="sd">        It waits for the other end to complete the handshake. It doesn&#39;t do</span>
 <span class="sd">        anything once the connection is closed.</span>
 
-<span class="sd">        It&#39;s usually safe to wrap this coroutine in ``asyncio.async()`` since</span>
+<span class="sd">        It&#39;s usually safe to wrap this coroutine in `asyncio.async()` since</span>
 <span class="sd">        errors during connection termination aren&#39;t particularly useful.</span>
 
 <span class="sd">        The `code` must be an :class:`int` and the `reason` a :class:`str`.</span>
@@ -384,8 +393,8 @@
             <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">state</span> <span class="o">==</span> <span class="s">&#39;CLOSED&#39;</span><span class="p">:</span>
                 <span class="k">return</span>
 
-        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">writer</span><span class="o">.</span><span class="n">can_write_eof</span><span class="p">(),</span> <span class="s">&quot;WebSocket runs over TCP/IP!&quot;</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">writer</span><span class="o">.</span><span class="n">write_eof</span><span class="p">()</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">writer</span><span class="o">.</span><span class="n">can_write_eof</span><span class="p">():</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">writer</span><span class="o">.</span><span class="n">write_eof</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">writer</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
 
         <span class="k">try</span><span class="p">:</span>
@@ -456,7 +465,7 @@
         <li class="right" >
           <a href="../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li><a href="../../index.html">websockets 2.0.0 documentation</a> &raquo;</li>
+        <li><a href="../../index.html">websockets 2.1.0 documentation</a> &raquo;</li>
           <li><a href="../index.html" >Module code</a> &raquo;</li> 
       </ul>
     </div>
