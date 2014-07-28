@@ -6,7 +6,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>websockets.server &mdash; websockets 2.1.0 documentation</title>
+    <title>websockets.server &mdash; websockets 2.2.0 documentation</title>
     
     <link rel="stylesheet" href="../../_static/pydoctheme.css" type="text/css" />
     <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
@@ -14,7 +14,7 @@
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    '../../',
-        VERSION:     '2.1.0',
+        VERSION:     '2.2.0',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -23,7 +23,7 @@
     <script type="text/javascript" src="../../_static/jquery.js"></script>
     <script type="text/javascript" src="../../_static/underscore.js"></script>
     <script type="text/javascript" src="../../_static/doctools.js"></script>
-    <link rel="top" title="websockets 2.1.0 documentation" href="../../index.html" />
+    <link rel="top" title="websockets 2.2.0 documentation" href="../../index.html" />
     <link rel="up" title="Module code" href="../index.html" /> 
   </head>
   <body>
@@ -36,7 +36,7 @@
         <li class="right" >
           <a href="../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li><a href="../../index.html">websockets 2.1.0 documentation</a> &raquo;</li>
+        <li><a href="../../index.html">websockets 2.2.0 documentation</a> &raquo;</li>
           <li><a href="../index.html" accesskey="U">Module code</a> &raquo;</li> 
       </ul>
     </div>  
@@ -79,7 +79,7 @@
 
     <span class="n">state</span> <span class="o">=</span> <span class="s">&#39;CONNECTING&#39;</span>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ws_handler</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">origins</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ws_handler</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">origins</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">ws_handler</span> <span class="o">=</span> <span class="n">ws_handler</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">origins</span> <span class="o">=</span> <span class="n">origins</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">__init__</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
@@ -109,7 +109,7 @@
             <span class="k">try</span><span class="p">:</span>
                 <span class="k">yield from</span> <span class="bp">self</span><span class="o">.</span><span class="n">ws_handler</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">)</span>
             <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
-                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s">&quot;Exception in connection handler&quot;</span><span class="p">,</span> <span class="n">exc_info</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s">&quot;Exception in connection handler&quot;</span><span class="p">,</span> <span class="n">exc_info</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
                 <span class="k">yield from</span> <span class="bp">self</span><span class="o">.</span><span class="n">fail_connection</span><span class="p">(</span><span class="mi">1011</span><span class="p">)</span>
                 <span class="k">raise</span>
 
@@ -126,15 +126,13 @@
             <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>                               <span class="c"># pragma: no cover</span>
                 <span class="k">pass</span>
 
-
-
     <span class="nd">@asyncio.coroutine</span>
 <div class="viewcode-block" id="WebSocketServerProtocol.handshake"><a class="viewcode-back" href="../../index.html#websockets.server.WebSocketServerProtocol.handshake">[docs]</a>    <span class="k">def</span> <span class="nf">handshake</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">origins</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Perform the server side of the opening handshake.</span>
 
 <span class="sd">        If provided, ``origins`` is a list of acceptable HTTP Origin values.</span>
-<span class="sd">        Include ``&#39;&#39;`` in the list if the lack of an origin is acceptable.</span>
+<span class="sd">        Include ``&#39;&#39;`` if the lack of an origin is acceptable.</span>
 
 <span class="sd">        Return the URI of the request.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
@@ -186,7 +184,8 @@
 
 <span class="sd">    `ws_handler` is the WebSocket handler. It must be a coroutine accepting</span>
 <span class="sd">    two arguments: a :class:`~websockets.server.WebSocketServerProtocol` and</span>
-<span class="sd">    the request URI. `origin` is a list of acceptable Origin HTTP headers.</span>
+<span class="sd">    the request URI. If provided, `origin` is a list of acceptable Origin HTTP</span>
+<span class="sd">    headers. Include ``&#39;&#39;`` if the lack of an origin is acceptable.</span>
 
 <span class="sd">    It returns a `Server` object with a `close` method to stop the server.</span>
 
@@ -195,6 +194,15 @@
 <span class="sd">    handshake, and delegates to the WebSocket handler. Once the handler</span>
 <span class="sd">    completes, the server performs the closing handshake and closes the</span>
 <span class="sd">    connection.</span>
+
+<span class="sd">    Since there&#39;s no useful way to propagate exceptions triggered in handlers,</span>
+<span class="sd">    they&#39;re sent to the `websockets.server` logger instead. Debugging is much</span>
+<span class="sd">    easier if you configure logging to print them::</span>
+
+<span class="sd">        import logging</span>
+<span class="sd">        logger = logging.getLogger(&#39;websockets.server&#39;)</span>
+<span class="sd">        logger.setLevel(logging.DEBUG)</span>
+<span class="sd">        logger.addHandler(logging.StreamHandler())</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">secure</span> <span class="o">=</span> <span class="n">kwds</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s">&#39;ssl&#39;</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span>
     <span class="n">factory</span> <span class="o">=</span> <span class="k">lambda</span><span class="p">:</span> <span class="n">klass</span><span class="p">(</span><span class="n">ws_handler</span><span class="p">,</span>
@@ -234,7 +242,7 @@
         <li class="right" >
           <a href="../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li><a href="../../index.html">websockets 2.1.0 documentation</a> &raquo;</li>
+        <li><a href="../../index.html">websockets 2.2.0 documentation</a> &raquo;</li>
           <li><a href="../index.html" >Module code</a> &raquo;</li> 
       </ul>
     </div>

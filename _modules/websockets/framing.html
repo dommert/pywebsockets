@@ -6,7 +6,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>websockets.framing &mdash; websockets 2.1.0 documentation</title>
+    <title>websockets.framing &mdash; websockets 2.2.0 documentation</title>
     
     <link rel="stylesheet" href="../../_static/pydoctheme.css" type="text/css" />
     <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
@@ -14,7 +14,7 @@
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    '../../',
-        VERSION:     '2.1.0',
+        VERSION:     '2.2.0',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -23,7 +23,7 @@
     <script type="text/javascript" src="../../_static/jquery.js"></script>
     <script type="text/javascript" src="../../_static/underscore.js"></script>
     <script type="text/javascript" src="../../_static/doctools.js"></script>
-    <link rel="top" title="websockets 2.1.0 documentation" href="../../index.html" />
+    <link rel="top" title="websockets 2.2.0 documentation" href="../../index.html" />
     <link rel="up" title="Module code" href="../index.html" /> 
   </head>
   <body>
@@ -36,7 +36,7 @@
         <li class="right" >
           <a href="../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li><a href="../../index.html">websockets 2.1.0 documentation</a> &raquo;</li>
+        <li><a href="../../index.html">websockets 2.2.0 documentation</a> &raquo;</li>
           <li><a href="../index.html" accesskey="U">Module code</a> &raquo;</li> 
       </ul>
     </div>  
@@ -64,7 +64,7 @@
 
 <span class="kn">import</span> <span class="nn">asyncio</span>
 
-<span class="kn">from</span> <span class="nn">.exceptions</span> <span class="kn">import</span> <span class="n">WebSocketProtocolError</span>
+<span class="kn">from</span> <span class="nn">.exceptions</span> <span class="kn">import</span> <span class="n">WebSocketProtocolError</span><span class="p">,</span> <span class="n">PayloadTooBig</span>
 
 
 <span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span>
@@ -96,7 +96,7 @@
 
 
 <span class="nd">@asyncio.coroutine</span>
-<div class="viewcode-block" id="read_frame"><a class="viewcode-back" href="../../index.html#websockets.framing.read_frame">[docs]</a><span class="k">def</span> <span class="nf">read_frame</span><span class="p">(</span><span class="n">reader</span><span class="p">,</span> <span class="n">mask</span><span class="p">):</span>
+<div class="viewcode-block" id="read_frame"><a class="viewcode-back" href="../../index.html#websockets.framing.read_frame">[docs]</a><span class="k">def</span> <span class="nf">read_frame</span><span class="p">(</span><span class="n">reader</span><span class="p">,</span> <span class="n">mask</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">max_size</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Read a WebSocket frame and return a :class:`Frame` object.</span>
 
@@ -105,6 +105,9 @@
 
 <span class="sd">    `mask` is a :class:`bool` telling whether the frame should be masked, ie.</span>
 <span class="sd">    whether the read happens on the server side.</span>
+
+<span class="sd">    If `max_size` is set and the payload exceeds this size in bytes,</span>
+<span class="sd">    :exc:`PayloadTooBig` is raised.</span>
 
 <span class="sd">    This function validates the frame before returning it and raises</span>
 <span class="sd">    :exc:`WebSocketProtocolError` if it contains incorrect values.</span>
@@ -125,6 +128,9 @@
     <span class="k">elif</span> <span class="n">length</span> <span class="o">==</span> <span class="mi">127</span><span class="p">:</span>
         <span class="n">data</span> <span class="o">=</span> <span class="k">yield from</span> <span class="n">read_bytes</span><span class="p">(</span><span class="n">reader</span><span class="p">,</span> <span class="mi">8</span><span class="p">)</span>
         <span class="n">length</span><span class="p">,</span> <span class="o">=</span> <span class="n">struct</span><span class="o">.</span><span class="n">unpack</span><span class="p">(</span><span class="s">&#39;!Q&#39;</span><span class="p">,</span> <span class="n">data</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">max_size</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span> <span class="ow">and</span> <span class="n">length</span> <span class="o">&gt;</span> <span class="n">max_size</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="n">PayloadTooBig</span><span class="p">(</span><span class="s">&quot;Payload exceeds limit &quot;</span>
+                            <span class="s">&quot;({} &gt; {} bytes)&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">length</span><span class="p">,</span> <span class="n">max_size</span><span class="p">))</span>
     <span class="k">if</span> <span class="n">mask</span><span class="p">:</span>
         <span class="n">mask_bits</span> <span class="o">=</span> <span class="k">yield from</span> <span class="n">read_bytes</span><span class="p">(</span><span class="n">reader</span><span class="p">,</span> <span class="mi">4</span><span class="p">)</span>
 
@@ -266,7 +272,7 @@
         <li class="right" >
           <a href="../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li><a href="../../index.html">websockets 2.1.0 documentation</a> &raquo;</li>
+        <li><a href="../../index.html">websockets 2.2.0 documentation</a> &raquo;</li>
           <li><a href="../index.html" >Module code</a> &raquo;</li> 
       </ul>
     </div>

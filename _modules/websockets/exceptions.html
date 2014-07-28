@@ -6,7 +6,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>websockets.exceptions &mdash; websockets 2.1.0 documentation</title>
+    <title>websockets.exceptions &mdash; websockets 2.2.0 documentation</title>
     
     <link rel="stylesheet" href="../../_static/pydoctheme.css" type="text/css" />
     <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
@@ -14,7 +14,7 @@
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    '../../',
-        VERSION:     '2.1.0',
+        VERSION:     '2.2.0',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -23,7 +23,7 @@
     <script type="text/javascript" src="../../_static/jquery.js"></script>
     <script type="text/javascript" src="../../_static/underscore.js"></script>
     <script type="text/javascript" src="../../_static/doctools.js"></script>
-    <link rel="top" title="websockets 2.1.0 documentation" href="../../index.html" />
+    <link rel="top" title="websockets 2.2.0 documentation" href="../../index.html" />
     <link rel="up" title="Module code" href="../index.html" /> 
   </head>
   <body>
@@ -36,7 +36,7 @@
         <li class="right" >
           <a href="../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li><a href="../../index.html">websockets 2.1.0 documentation</a> &raquo;</li>
+        <li><a href="../../index.html">websockets 2.2.0 documentation</a> &raquo;</li>
           <li><a href="../index.html" accesskey="U">Module code</a> &raquo;</li> 
       </ul>
     </div>  
@@ -62,6 +62,10 @@
     <span class="sd">&quot;&quot;&quot;Exception raised when an URI is invalid.&quot;&quot;&quot;</span>
 
 </div>
+<span class="k">class</span> <span class="nc">PayloadTooBig</span><span class="p">(</span><span class="ne">Exception</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Exception raised when the payload in a frame exceeds the maximum size.&quot;&quot;&quot;</span>
+
+
 <span class="k">class</span> <span class="nc">WebSocketProtocolError</span><span class="p">(</span><span class="ne">Exception</span><span class="p">):</span>
     <span class="c"># Internal exception raised when the other end breaks the protocol.</span>
     <span class="c"># It&#39;s private because it shouldn&#39;t leak outside of WebSocketCommonProtocol.</span>
@@ -99,7 +103,7 @@
         <li class="right" >
           <a href="../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li><a href="../../index.html">websockets 2.1.0 documentation</a> &raquo;</li>
+        <li><a href="../../index.html">websockets 2.2.0 documentation</a> &raquo;</li>
           <li><a href="../index.html" >Module code</a> &raquo;</li> 
       </ul>
     </div>

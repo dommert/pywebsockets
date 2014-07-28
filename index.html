@@ -6,7 +6,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>WebSockets &mdash; websockets 2.1.0 documentation</title>
+    <title>WebSockets &mdash; websockets 2.2.0 documentation</title>
     
     <link rel="stylesheet" href="_static/pydoctheme.css" type="text/css" />
     <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
@@ -14,7 +14,7 @@
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    './',
-        VERSION:     '2.1.0',
+        VERSION:     '2.2.0',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -23,7 +23,7 @@
     <script type="text/javascript" src="_static/jquery.js"></script>
     <script type="text/javascript" src="_static/underscore.js"></script>
     <script type="text/javascript" src="_static/doctools.js"></script>
-    <link rel="top" title="websockets 2.1.0 documentation" href="#" /> 
+    <link rel="top" title="websockets 2.2.0 documentation" href="#" /> 
   </head>
   <body>
     <div class="related">
@@ -35,7 +35,7 @@
         <li class="right" >
           <a href="py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li><a href="#">websockets 2.1.0 documentation</a> &raquo;</li> 
+        <li><a href="#">websockets 2.2.0 documentation</a> &raquo;</li> 
       </ul>
     </div>  
 
@@ -71,21 +71,14 @@ message.</p>
     <span class="n">name</span> <span class="o">=</span> <span class="k">yield from</span> <span class="n">websocket</span><span class="o">.</span><span class="n">recv</span><span class="p">()</span>
     <span class="k">print</span><span class="p">(</span><span class="s">&quot;&lt; {}&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">name</span><span class="p">))</span>
     <span class="n">greeting</span> <span class="o">=</span> <span class="s">&quot;Hello {}!&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
-    <span class="k">print</span><span class="p">(</span><span class="s">&quot;&gt; {}&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">greeting</span><span class="p">))</span>
     <span class="k">yield from</span> <span class="n">websocket</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="n">greeting</span><span class="p">)</span>
+    <span class="k">print</span><span class="p">(</span><span class="s">&quot;&gt; {}&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">greeting</span><span class="p">))</span>
 
 <span class="n">start_server</span> <span class="o">=</span> <span class="n">websockets</span><span class="o">.</span><span class="n">serve</span><span class="p">(</span><span class="n">hello</span><span class="p">,</span> <span class="s">&#39;localhost&#39;</span><span class="p">,</span> <span class="mi">8765</span><span class="p">)</span>
 
 <span class="n">asyncio</span><span class="o">.</span><span class="n">get_event_loop</span><span class="p">()</span><span class="o">.</span><span class="n">run_until_complete</span><span class="p">(</span><span class="n">start_server</span><span class="p">)</span>
 <span class="n">asyncio</span><span class="o">.</span><span class="n">get_event_loop</span><span class="p">()</span><span class="o">.</span><span class="n">run_forever</span><span class="p">()</span>
 </pre></div>
-</div>
-<div class="admonition note">
-<p class="first admonition-title">Note</p>
-<p class="last">The handler function, <tt class="docutils literal"><span class="pre">hello</span></tt>, is executed once for each WebSocket
-connection. The connection is automatically closed when the handler
-returns. If you want to process several messages in the same connection,
-you must write a loop, most likely with <a class="reference internal" href="#websockets.protocol.WebSocketCommonProtocol.open" title="websockets.protocol.WebSocketCommonProtocol.open"><tt class="xref py py-attr docutils literal"><span class="pre">websocket.open</span></tt></a>.</p>
 </div>
 <p id="client-example">Here&#8217;s a corresponding client example.</p>
 <div class="highlight-python"><div class="highlight"><pre><span class="c">#!/usr/bin/env python</span>
@@ -104,6 +97,46 @@ you must write a loop, most likely with <a class="reference internal" href="#web
 
 <span class="n">asyncio</span><span class="o">.</span><span class="n">get_event_loop</span><span class="p">()</span><span class="o">.</span><span class="n">run_until_complete</span><span class="p">(</span><span class="n">hello</span><span class="p">())</span>
 </pre></div>
+</div>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p>On the server side, the handler coroutine <tt class="docutils literal"><span class="pre">hello</span></tt> is executed once for
+each WebSocket connection. The connection is automatically closed when the
+handler returns.</p>
+<p>You will almost always want to process several messages during the
+lifetime of a connection. Therefore you must write a loop. Here are the
+recommended patterns to exit cleanly when the connection drops, either
+because the other side closed it or for any other reason.</p>
+<p>For receiving messages and passing them to a <tt class="docutils literal"><span class="pre">consumer</span></tt> coroutine:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="nd">@asyncio.coroutine</span>
+<span class="k">def</span> <span class="nf">handler</span><span class="p">(</span><span class="n">websocket</span><span class="p">,</span> <span class="n">path</span><span class="p">):</span>
+    <span class="k">while</span> <span class="bp">True</span><span class="p">:</span>
+        <span class="n">message</span> <span class="o">=</span> <span class="k">yield from</span> <span class="n">websocket</span><span class="o">.</span><span class="n">recv</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">message</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="k">break</span>
+        <span class="k">yield from</span> <span class="n">consumer</span><span class="p">(</span><span class="n">message</span><span class="p">)</span>
+</pre></div>
+</div>
+<p><a class="reference internal" href="#websockets.protocol.WebSocketCommonProtocol.recv" title="websockets.protocol.WebSocketCommonProtocol.recv"><tt class="xref py py-meth docutils literal"><span class="pre">recv()</span></tt></a> returns <tt class="docutils literal"><span class="pre">None</span></tt>
+when the connection is closed. In other words, <tt class="docutils literal"><span class="pre">None</span></tt> marks the end of
+the message stream. The handler coroutine should check for that case and
+return when it happens.</p>
+<p>For getting messages from a <tt class="docutils literal"><span class="pre">producer</span></tt> coroutine and sending them:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="nd">@asyncio.coroutine</span>
+<span class="k">def</span> <span class="nf">handler</span><span class="p">(</span><span class="n">websocket</span><span class="p">,</span> <span class="n">path</span><span class="p">):</span>
+    <span class="k">while</span> <span class="bp">True</span><span class="p">:</span>
+        <span class="n">message</span> <span class="o">=</span> <span class="k">yield from</span> <span class="n">producer</span><span class="p">()</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">websocket</span><span class="o">.</span><span class="n">open</span><span class="p">:</span>
+            <span class="k">break</span>
+        <span class="k">yield from</span> <span class="n">websocket</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="n">message</span><span class="p">)</span>
+</pre></div>
+</div>
+<p><a class="reference internal" href="#websockets.protocol.WebSocketCommonProtocol.send" title="websockets.protocol.WebSocketCommonProtocol.send"><tt class="xref py py-meth docutils literal"><span class="pre">send()</span></tt></a> fails with an
+exception when it&#8217;s called on a closed connection. Therefore the handler
+coroutine should check that the connection is still open before attempting
+to write and return otherwise.</p>
+<p class="last">Of course, you can combine the two patterns shown above to read and write
+messages on the same connection.</p>
 </div>
 </div>
 <div class="section" id="design">
@@ -132,25 +165,35 @@ in this document is a private API.</p>
 <p>The <a class="reference internal" href="#module-websockets.server" title="websockets.server"><tt class="xref py py-mod docutils literal"><span class="pre">websockets.server</span></tt></a> module defines a simple WebSocket server API.</p>
 <dl class="function">
 <dt id="websockets.server.serve">
-<tt class="descclassname">websockets.server.</tt><tt class="descname">serve</tt><big>(</big><em>ws_handler</em>, <em>host=None</em>, <em>port=None</em>, <em>*</em>, <em>klass=WebSocketServerProtocol</em>, <em>**kwds</em><big>)</big><a class="reference internal" href="_modules/websockets/server.html#serve"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#websockets.server.serve" title="Permalink to this definition">¶</a></dt>
+<tt class="descclassname">websockets.server.</tt><tt class="descname">serve</tt><big>(</big><em>ws_handler</em>, <em>host=None</em>, <em>port=None</em>, <em>*</em>, <em>klass=WebSocketServerProtocol</em>, <em>origins=None</em>, <em>**kwds</em><big>)</big><a class="reference internal" href="_modules/websockets/server.html#serve"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#websockets.server.serve" title="Permalink to this definition">¶</a></dt>
 <dd><p>This coroutine creates a WebSocket server.</p>
 <p>It&#8217;s a thin wrapper around the event loop&#8217;s <cite>create_server</cite> method.
 <cite>host</cite>, <cite>port</cite> as well as extra keyword arguments are passed to
 <cite>create_server</cite>.</p>
 <p><cite>ws_handler</cite> is the WebSocket handler. It must be a coroutine accepting
 two arguments: a <a class="reference internal" href="#websockets.server.WebSocketServerProtocol" title="websockets.server.WebSocketServerProtocol"><tt class="xref py py-class docutils literal"><span class="pre">WebSocketServerProtocol</span></tt></a> and
-the request URI. <cite>origin</cite> is a list of acceptable Origin HTTP headers.</p>
+the request URI. If provided, <cite>origin</cite> is a list of acceptable Origin HTTP
+headers. Include <tt class="docutils literal"><span class="pre">''</span></tt> if the lack of an origin is acceptable.</p>
 <p>It returns a <cite>Server</cite> object with a <cite>close</cite> method to stop the server.</p>
 <p>Whenever a client connects, the server accepts the connection, creates a
 <a class="reference internal" href="#websockets.server.WebSocketServerProtocol" title="websockets.server.WebSocketServerProtocol"><tt class="xref py py-class docutils literal"><span class="pre">WebSocketServerProtocol</span></tt></a>, performs the opening
 handshake, and delegates to the WebSocket handler. Once the handler
 completes, the server performs the closing handshake and closes the
 connection.</p>
+<p>Since there&#8217;s no useful way to propagate exceptions triggered in handlers,
+they&#8217;re sent to the <cite>websockets.server</cite> logger instead. Debugging is much
+easier if you configure logging to print them:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="kn">import</span> <span class="nn">logging</span>
+<span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="s">&#39;websockets.server&#39;</span><span class="p">)</span>
+<span class="n">logger</span><span class="o">.</span><span class="n">setLevel</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">DEBUG</span><span class="p">)</span>
+<span class="n">logger</span><span class="o">.</span><span class="n">addHandler</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">StreamHandler</span><span class="p">())</span>
+</pre></div>
+</div>
 </dd></dl>
 
 <dl class="class">
 <dt id="websockets.server.WebSocketServerProtocol">
-<em class="property">class </em><tt class="descclassname">websockets.server.</tt><tt class="descname">WebSocketServerProtocol</tt><big>(</big><em>self</em>, <em>ws_handler</em>, <em>timeout=10</em><big>)</big><a class="reference internal" href="_modules/websockets/server.html#WebSocketServerProtocol"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#websockets.server.WebSocketServerProtocol" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><tt class="descclassname">websockets.server.</tt><tt class="descname">WebSocketServerProtocol</tt><big>(</big><em>ws_handler</em>, <em>*</em>, <em>origins=None</em>, <em>host=None</em>, <em>port=None</em>, <em>secure=None</em>, <em>timeout=10</em>, <em>max_size=2 ** 20</em>, <em>loop=None</em><big>)</big><a class="reference internal" href="_modules/websockets/server.html#WebSocketServerProtocol"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#websockets.server.WebSocketServerProtocol" title="Permalink to this definition">¶</a></dt>
 <dd><p>Complete WebSocket server implementation as an asyncio protocol.</p>
 <p>This class inherits most of its methods from
 <a class="reference internal" href="#websockets.protocol.WebSocketCommonProtocol" title="websockets.protocol.WebSocketCommonProtocol"><tt class="xref py py-class docutils literal"><span class="pre">WebSocketCommonProtocol</span></tt></a>.</p>
@@ -161,7 +204,7 @@ implementation. Its support for HTTP responses is very limited.</p>
 <tt class="descname">handshake</tt><big>(</big><em>origins=None</em><big>)</big><a class="reference internal" href="_modules/websockets/server.html#WebSocketServerProtocol.handshake"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#websockets.server.WebSocketServerProtocol.handshake" title="Permalink to this definition">¶</a></dt>
 <dd><p>Perform the server side of the opening handshake.</p>
 <p>If provided, <tt class="docutils literal"><span class="pre">origins</span></tt> is a list of acceptable HTTP Origin values.
-Include <tt class="docutils literal"><span class="pre">''</span></tt> in the list if the lack of an origin is acceptable.</p>
+Include <tt class="docutils literal"><span class="pre">''</span></tt> if the lack of an origin is acceptable.</p>
 <p>Return the URI of the request.</p>
 </dd></dl>
 
@@ -173,7 +216,7 @@ Include <tt class="docutils literal"><span class="pre">''</span></tt> in the lis
 <p>The <a class="reference internal" href="#module-websockets.client" title="websockets.client"><tt class="xref py py-mod docutils literal"><span class="pre">websockets.client</span></tt></a> module defines a simple WebSocket client API.</p>
 <dl class="function">
 <dt id="websockets.client.connect">
-<tt class="descclassname">websockets.client.</tt><tt class="descname">connect</tt><big>(</big><em>uri</em>, <em>*</em>, <em>klass=WebSocketClientProtocol</em>, <em>**kwds</em><big>)</big><a class="reference internal" href="_modules/websockets/client.html#connect"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#websockets.client.connect" title="Permalink to this definition">¶</a></dt>
+<tt class="descclassname">websockets.client.</tt><tt class="descname">connect</tt><big>(</big><em>uri</em>, <em>*</em>, <em>klass=WebSocketClientProtocol</em>, <em>origin=None</em>, <em>**kwds</em><big>)</big><a class="reference internal" href="_modules/websockets/client.html#connect"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#websockets.client.connect" title="Permalink to this definition">¶</a></dt>
 <dd><p>This coroutine connects to a WebSocket server.</p>
 <p>It accepts an <tt class="docutils literal"><span class="pre">origin</span></tt> keyword argument to set the Origin HTTP header.</p>
 <p>It&#8217;s a thin wrapper around the event loop&#8217;s <cite>create_connection</cite> method.
@@ -192,7 +235,7 @@ more than one connection in a CONNECTING state.&#8221;</p>
 
 <dl class="class">
 <dt id="websockets.client.WebSocketClientProtocol">
-<em class="property">class </em><tt class="descclassname">websockets.client.</tt><tt class="descname">WebSocketClientProtocol</tt><big>(</big><em>self</em>, <em>timeout=10</em><big>)</big><a class="reference internal" href="_modules/websockets/client.html#WebSocketClientProtocol"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#websockets.client.WebSocketClientProtocol" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><tt class="descclassname">websockets.client.</tt><tt class="descname">WebSocketClientProtocol</tt><big>(</big><em>*</em>, <em>host=None</em>, <em>port=None</em>, <em>secure=None</em>, <em>timeout=10</em>, <em>max_size=2 ** 20</em>, <em>loop=None</em><big>)</big><a class="reference internal" href="_modules/websockets/client.html#WebSocketClientProtocol"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#websockets.client.WebSocketClientProtocol" title="Permalink to this definition">¶</a></dt>
 <dd><p>Complete WebSocket client implementation as an asyncio protocol.</p>
 <p>This class inherits most of its methods from
 <a class="reference internal" href="#websockets.protocol.WebSocketCommonProtocol" title="websockets.protocol.WebSocketCommonProtocol"><tt class="xref py py-class docutils literal"><span class="pre">WebSocketCommonProtocol</span></tt></a>.</p>
@@ -212,7 +255,7 @@ more than one connection in a CONNECTING state.&#8221;</p>
 frames as specified in <a class="reference external" href="http://tools.ietf.org/html/rfc6455#section-4">sections 4 to 8 of RFC 6455</a>.</p>
 <dl class="class">
 <dt id="websockets.protocol.WebSocketCommonProtocol">
-<em class="property">class </em><tt class="descclassname">websockets.protocol.</tt><tt class="descname">WebSocketCommonProtocol</tt><big>(</big><em>self</em>, <em>timeout=10</em><big>)</big><a class="reference internal" href="_modules/websockets/protocol.html#WebSocketCommonProtocol"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#websockets.protocol.WebSocketCommonProtocol" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><tt class="descclassname">websockets.protocol.</tt><tt class="descname">WebSocketCommonProtocol</tt><big>(</big><em>*</em>, <em>host=None</em>, <em>port=None</em>, <em>secure=None</em>, <em>timeout=10</em>, <em>max_size=2 ** 20</em>, <em>loop=None</em><big>)</big><a class="reference internal" href="_modules/websockets/protocol.html#WebSocketCommonProtocol"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#websockets.protocol.WebSocketCommonProtocol" title="Permalink to this definition">¶</a></dt>
 <dd><p>This class implements common parts of the WebSocket protocol.</p>
 <p>It assumes that the WebSocket connection is established. The handshake is
 managed in subclasses such as
@@ -227,6 +270,10 @@ for handlers that need them.</p>
 completing the closing handshake and, only on the client side, for
 terminating the TCP connection. <a class="reference internal" href="#websockets.protocol.WebSocketCommonProtocol.close" title="websockets.protocol.WebSocketCommonProtocol.close"><tt class="xref py py-meth docutils literal"><span class="pre">close()</span></tt></a> will complete in at most
 this time on the server side and twice this time on the client side.</p>
+<p>The <cite>max_size</cite> parameter enforces the maximum size for incoming messages
+in bytes. The default value is 1MB. <tt class="docutils literal"><span class="pre">None</span></tt> disables the limit. If a
+message larger than the maximum size is received, <a class="reference internal" href="#websockets.protocol.WebSocketCommonProtocol.recv" title="websockets.protocol.WebSocketCommonProtocol.recv"><tt class="xref py py-meth docutils literal"><span class="pre">recv()</span></tt></a> will
+return <tt class="docutils literal"><span class="pre">None</span></tt> and the connection will be closed with status code 1009.</p>
 <p>Once the connection is closed, the status code is available in the
 <tt class="xref py py-attr docutils literal"><span class="pre">close_code</span></tt> attribute and the reason in <tt class="xref py py-attr docutils literal"><span class="pre">close_reason</span></tt>.</p>
 <dl class="attribute">
@@ -280,7 +327,7 @@ pong is received and which you may ignore if you don&#8217;t want to wait.</p>
 
 <dl class="method">
 <dt id="websockets.protocol.WebSocketCommonProtocol.pong">
-<tt class="descname">pong</tt><big>(</big><big>)</big><a class="reference internal" href="_modules/websockets/protocol.html#WebSocketCommonProtocol.pong"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#websockets.protocol.WebSocketCommonProtocol.pong" title="Permalink to this definition">¶</a></dt>
+<tt class="descname">pong</tt><big>(</big><em>data=b''</em><big>)</big><a class="reference internal" href="_modules/websockets/protocol.html#WebSocketCommonProtocol.pong"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#websockets.protocol.WebSocketCommonProtocol.pong" title="Permalink to this definition">¶</a></dt>
 <dd><p>This coroutine sends a pong.</p>
 <p>An unsolicited pong may serve as a unidirectional heartbeat.</p>
 </dd></dl>
@@ -414,12 +461,14 @@ of frames is implemented in <a class="reference internal" href="#module-websocke
 
 <dl class="function">
 <dt id="websockets.framing.read_frame">
-<tt class="descclassname">websockets.framing.</tt><tt class="descname">read_frame</tt><big>(</big><em>reader</em>, <em>mask</em><big>)</big><a class="reference internal" href="_modules/websockets/framing.html#read_frame"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#websockets.framing.read_frame" title="Permalink to this definition">¶</a></dt>
+<tt class="descclassname">websockets.framing.</tt><tt class="descname">read_frame</tt><big>(</big><em>reader</em>, <em>mask</em>, <em>*</em>, <em>max_size=None</em><big>)</big><a class="reference internal" href="_modules/websockets/framing.html#read_frame"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#websockets.framing.read_frame" title="Permalink to this definition">¶</a></dt>
 <dd><p>Read a WebSocket frame and return a <a class="reference internal" href="#websockets.framing.Frame" title="websockets.framing.Frame"><tt class="xref py py-class docutils literal"><span class="pre">Frame</span></tt></a> object.</p>
 <p><cite>reader</cite> is a coroutine taking an integer argument and reading exactly this
 number of bytes, unless the end of file is reached.</p>
 <p><cite>mask</cite> is a <tt class="xref py py-class docutils literal"><span class="pre">bool</span></tt> telling whether the frame should be masked, ie.
 whether the read happens on the server side.</p>
+<p>If <cite>max_size</cite> is set and the payload exceeds this size in bytes,
+<tt class="xref py py-exc docutils literal"><span class="pre">PayloadTooBig</span></tt> is raised.</p>
 <p>This function validates the frame before returning it and raises
 <tt class="xref py py-exc docutils literal"><span class="pre">WebSocketProtocolError</span></tt> if it contains incorrect values.</p>
 </dd></dl>
@@ -500,14 +549,20 @@ is a <a class="reference external" href="http://docs.python.org/3/library/email.
 <div class="section" id="changelog">
 <h2>Changelog<a class="headerlink" href="#changelog" title="Permalink to this headline">¶</a></h2>
 <div class="section" id="id1">
-<h3>2.1<a class="headerlink" href="#id1" title="Permalink to this headline">¶</a></h3>
+<h3>2.2<a class="headerlink" href="#id1" title="Permalink to this headline">¶</a></h3>
+<ul class="simple">
+<li>Added support for limiting message size.</li>
+</ul>
+</div>
+<div class="section" id="id2">
+<h3>2.1<a class="headerlink" href="#id2" title="Permalink to this headline">¶</a></h3>
 <ul class="simple">
 <li>Added <cite>host</cite>, <cite>port</cite> and <cite>secure</cite> attributes on protocols.</li>
 <li>Added support for providing and checking <a class="reference external" href="https://tools.ietf.org/html/rfc6455#section-10.2">Origin</a>.</li>
 </ul>
 </div>
-<div class="section" id="id2">
-<h3>2.0<a class="headerlink" href="#id2" title="Permalink to this headline">¶</a></h3>
+<div class="section" id="id3">
+<h3>2.0<a class="headerlink" href="#id3" title="Permalink to this headline">¶</a></h3>
 <ul class="simple">
 <li>Backwards-incompatible API change:
 <a class="reference internal" href="#websockets.protocol.WebSocketCommonProtocol.send" title="websockets.protocol.WebSocketCommonProtocol.send"><tt class="xref py py-meth docutils literal"><span class="pre">send()</span></tt></a>,
@@ -517,8 +572,8 @@ They used to be regular functions.</li>
 <li>Add flow control.</li>
 </ul>
 </div>
-<div class="section" id="id3">
-<h3>1.0<a class="headerlink" href="#id3" title="Permalink to this headline">¶</a></h3>
+<div class="section" id="id4">
+<h3>1.0<a class="headerlink" href="#id4" title="Permalink to this headline">¶</a></h3>
 <ul class="simple">
 <li>Initial public release.</li>
 </ul>
@@ -531,7 +586,7 @@ extensions are <a class="reference external" href="http://www.iana.org/assignmen
 </div>
 <div class="section" id="license">
 <h2>License<a class="headerlink" href="#license" title="Permalink to this headline">¶</a></h2>
-<div class="highlight-python"><div class="highlight"><pre>Copyright (c) 2013-2014 Aymeric Augustin.
+<div class="highlight-python"><div class="highlight"><pre>Copyright (c) 2013-2014 Aymeric Augustin and contributors.
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
@@ -587,9 +642,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 </ul>
 </li>
 <li><a class="reference internal" href="#changelog">Changelog</a><ul>
-<li><a class="reference internal" href="#id1">2.1</a></li>
-<li><a class="reference internal" href="#id2">2.0</a></li>
-<li><a class="reference internal" href="#id3">1.0</a></li>
+<li><a class="reference internal" href="#id1">2.2</a></li>
+<li><a class="reference internal" href="#id2">2.1</a></li>
+<li><a class="reference internal" href="#id3">2.0</a></li>
+<li><a class="reference internal" href="#id4">1.0</a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#limitations">Limitations</a></li>
@@ -629,7 +685,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
         <li class="right" >
           <a href="py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li><a href="#">websockets 2.1.0 documentation</a> &raquo;</li> 
+        <li><a href="#">websockets 2.2.0 documentation</a> &raquo;</li> 
       </ul>
     </div>
     <div class="footer">
