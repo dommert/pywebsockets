@@ -6,7 +6,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>WebSockets &mdash; websockets 2.2.0 documentation</title>
+    <title>WebSockets &mdash; websockets 2.3.0 documentation</title>
     
     <link rel="stylesheet" href="_static/pydoctheme.css" type="text/css" />
     <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
@@ -14,7 +14,7 @@
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    './',
-        VERSION:     '2.2.0',
+        VERSION:     '2.3.0',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -23,7 +23,7 @@
     <script type="text/javascript" src="_static/jquery.js"></script>
     <script type="text/javascript" src="_static/underscore.js"></script>
     <script type="text/javascript" src="_static/doctools.js"></script>
-    <link rel="top" title="websockets 2.2.0 documentation" href="#" /> 
+    <link rel="top" title="websockets 2.3.0 documentation" href="#" /> 
   </head>
   <body>
     <div class="related">
@@ -35,7 +35,7 @@
         <li class="right" >
           <a href="py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li><a href="#">websockets 2.2.0 documentation</a> &raquo;</li> 
+        <li><a href="#">websockets 2.3.0 documentation</a> &raquo;</li> 
       </ul>
     </div>  
 
@@ -292,14 +292,14 @@ return <tt class="docutils literal"><span class="pre">None</span></tt> and the c
 anything once the connection is closed.</p>
 <p>It&#8217;s usually safe to wrap this coroutine in <cite>asyncio.async()</cite> since
 errors during connection termination aren&#8217;t particularly useful.</p>
-<p>The <cite>code</cite> must be an <tt class="xref py py-class docutils literal"><span class="pre">int</span></tt> and the <cite>reason</cite> a <a class="reference external" href="http://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.4)"><tt class="xref py py-class docutils literal"><span class="pre">str</span></tt></a>.</p>
+<p>The <cite>code</cite> must be an <a class="reference external" href="http://docs.python.org/3/library/functions.html#int" title="(in Python v3.4)"><tt class="xref py py-class docutils literal"><span class="pre">int</span></tt></a> and the <cite>reason</cite> a <a class="reference external" href="http://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.4)"><tt class="xref py py-class docutils literal"><span class="pre">str</span></tt></a>.</p>
 </dd></dl>
 
 <dl class="method">
 <dt id="websockets.protocol.WebSocketCommonProtocol.recv">
 <tt class="descname">recv</tt><big>(</big><big>)</big><a class="reference internal" href="_modules/websockets/protocol.html#WebSocketCommonProtocol.recv"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#websockets.protocol.WebSocketCommonProtocol.recv" title="Permalink to this definition">¶</a></dt>
 <dd><p>This coroutine receives the next message.</p>
-<p>It returns a <a class="reference external" href="http://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.4)"><tt class="xref py py-class docutils literal"><span class="pre">str</span></tt></a> for a text frame and <tt class="xref py py-class docutils literal"><span class="pre">bytes</span></tt> for a
+<p>It returns a <a class="reference external" href="http://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.4)"><tt class="xref py py-class docutils literal"><span class="pre">str</span></tt></a> for a text frame and <a class="reference external" href="http://docs.python.org/3/library/functions.html#bytes" title="(in Python v3.4)"><tt class="xref py py-class docutils literal"><span class="pre">bytes</span></tt></a> for a
 binary frame.</p>
 <p>When the end of the message stream is reached, or when a protocol
 error occurs, <a class="reference internal" href="#websockets.protocol.WebSocketCommonProtocol.recv" title="websockets.protocol.WebSocketCommonProtocol.recv"><tt class="xref py py-meth docutils literal"><span class="pre">recv()</span></tt></a> returns <tt class="docutils literal"><span class="pre">None</span></tt>, indicating that the
@@ -310,7 +310,7 @@ connection is closed.</p>
 <dt id="websockets.protocol.WebSocketCommonProtocol.send">
 <tt class="descname">send</tt><big>(</big><em>data</em><big>)</big><a class="reference internal" href="_modules/websockets/protocol.html#WebSocketCommonProtocol.send"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#websockets.protocol.WebSocketCommonProtocol.send" title="Permalink to this definition">¶</a></dt>
 <dd><p>This coroutine sends a message.</p>
-<p>It sends a <a class="reference external" href="http://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.4)"><tt class="xref py py-class docutils literal"><span class="pre">str</span></tt></a> as a text frame and <tt class="xref py py-class docutils literal"><span class="pre">bytes</span></tt> as a binary
+<p>It sends a <a class="reference external" href="http://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.4)"><tt class="xref py py-class docutils literal"><span class="pre">str</span></tt></a> as a text frame and <a class="reference external" href="http://docs.python.org/3/library/functions.html#bytes" title="(in Python v3.4)"><tt class="xref py py-class docutils literal"><span class="pre">bytes</span></tt></a> as a binary
 frame.</p>
 <p>It raises a <a class="reference external" href="http://docs.python.org/3/library/exceptions.html#TypeError" title="(in Python v3.4)"><tt class="xref py py-exc docutils literal"><span class="pre">TypeError</span></tt></a> for other inputs and
 <tt class="xref py py-exc docutils literal"><span class="pre">InvalidState</span></tt> once the connection is closed.</p>
@@ -465,7 +465,7 @@ of frames is implemented in <a class="reference internal" href="#module-websocke
 <dd><p>Read a WebSocket frame and return a <a class="reference internal" href="#websockets.framing.Frame" title="websockets.framing.Frame"><tt class="xref py py-class docutils literal"><span class="pre">Frame</span></tt></a> object.</p>
 <p><cite>reader</cite> is a coroutine taking an integer argument and reading exactly this
 number of bytes, unless the end of file is reached.</p>
-<p><cite>mask</cite> is a <tt class="xref py py-class docutils literal"><span class="pre">bool</span></tt> telling whether the frame should be masked, ie.
+<p><cite>mask</cite> is a <a class="reference external" href="http://docs.python.org/3/library/functions.html#bool" title="(in Python v3.4)"><tt class="xref py py-class docutils literal"><span class="pre">bool</span></tt></a> telling whether the frame should be masked, ie.
 whether the read happens on the server side.</p>
 <p>If <cite>max_size</cite> is set and the payload exceeds this size in bytes,
 <tt class="xref py py-exc docutils literal"><span class="pre">PayloadTooBig</span></tt> is raised.</p>
@@ -479,7 +479,7 @@ whether the read happens on the server side.</p>
 <dd><p>Write a WebSocket frame.</p>
 <p><cite>frame</cite> is the <a class="reference internal" href="#websockets.framing.Frame" title="websockets.framing.Frame"><tt class="xref py py-class docutils literal"><span class="pre">Frame</span></tt></a> object to write.</p>
 <p><cite>writer</cite> is a function accepting bytes.</p>
-<p><cite>mask</cite> is a <tt class="xref py py-class docutils literal"><span class="pre">bool</span></tt> telling whether the frame should be masked, ie.
+<p><cite>mask</cite> is a <a class="reference external" href="http://docs.python.org/3/library/functions.html#bool" title="(in Python v3.4)"><tt class="xref py py-class docutils literal"><span class="pre">bool</span></tt></a> telling whether the frame should be masked, ie.
 whether the write happens on the client side.</p>
 <p>This function validates the frame before sending it and raises
 <tt class="xref py py-exc docutils literal"><span class="pre">WebSocketProtocolError</span></tt> if it contains incorrect values.</p>
@@ -489,7 +489,7 @@ whether the write happens on the client side.</p>
 <dt id="websockets.framing.parse_close">
 <tt class="descclassname">websockets.framing.</tt><tt class="descname">parse_close</tt><big>(</big><em>data</em><big>)</big><a class="reference internal" href="_modules/websockets/framing.html#parse_close"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#websockets.framing.parse_close" title="Permalink to this definition">¶</a></dt>
 <dd><p>Parse the data in a close frame.</p>
-<p>Return <cite>(code, reason)</cite> when <cite>code</cite> is an <tt class="xref py py-class docutils literal"><span class="pre">int</span></tt> and <cite>reason</cite> a
+<p>Return <cite>(code, reason)</cite> when <cite>code</cite> is an <a class="reference external" href="http://docs.python.org/3/library/functions.html#int" title="(in Python v3.4)"><tt class="xref py py-class docutils literal"><span class="pre">int</span></tt></a> and <cite>reason</cite> a
 <a class="reference external" href="http://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.4)"><tt class="xref py py-class docutils literal"><span class="pre">str</span></tt></a>.</p>
 <p>Raise <tt class="xref py py-exc docutils literal"><span class="pre">WebSocketProtocolError</span></tt> or <a class="reference external" href="http://docs.python.org/3/library/exceptions.html#UnicodeDecodeError" title="(in Python v3.4)"><tt class="xref py py-exc docutils literal"><span class="pre">UnicodeDecodeError</span></tt></a> if the
 data is invalid.</p>
@@ -538,7 +538,7 @@ imported from <a class="reference internal" href="#module-websockets.http" title
 <dt id="websockets.http.read_response">
 <tt class="descclassname">websockets.http.</tt><tt class="descname">read_response</tt><big>(</big><em>stream</em><big>)</big><a class="reference internal" href="_modules/websockets/http.html#read_response"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#websockets.http.read_response" title="Permalink to this definition">¶</a></dt>
 <dd><p>Read an HTTP/1.1 response from <cite>stream</cite>.</p>
-<p>Return <cite>(status, headers)</cite> where <cite>status</cite> is a <tt class="xref py py-class docutils literal"><span class="pre">int</span></tt> and <cite>headers</cite>
+<p>Return <cite>(status, headers)</cite> where <cite>status</cite> is a <a class="reference external" href="http://docs.python.org/3/library/functions.html#int" title="(in Python v3.4)"><tt class="xref py py-class docutils literal"><span class="pre">int</span></tt></a> and <cite>headers</cite>
 is a <a class="reference external" href="http://docs.python.org/3/library/email.message.html#email.message.Message" title="(in Python v3.4)"><tt class="xref py py-class docutils literal"><span class="pre">Message</span></tt></a>.</p>
 <p>Raise an exception if the request isn&#8217;t well formatted.</p>
 <p>The response is assumed not to contain a body.</p>
@@ -549,20 +549,26 @@ is a <a class="reference external" href="http://docs.python.org/3/library/email.
 <div class="section" id="changelog">
 <h2>Changelog<a class="headerlink" href="#changelog" title="Permalink to this headline">¶</a></h2>
 <div class="section" id="id1">
-<h3>2.2<a class="headerlink" href="#id1" title="Permalink to this headline">¶</a></h3>
+<h3>2.3<a class="headerlink" href="#id1" title="Permalink to this headline">¶</a></h3>
+<ul class="simple">
+<li>Improved compliance of close codes.</li>
+</ul>
+</div>
+<div class="section" id="id2">
+<h3>2.2<a class="headerlink" href="#id2" title="Permalink to this headline">¶</a></h3>
 <ul class="simple">
 <li>Added support for limiting message size.</li>
 </ul>
 </div>
-<div class="section" id="id2">
-<h3>2.1<a class="headerlink" href="#id2" title="Permalink to this headline">¶</a></h3>
+<div class="section" id="id3">
+<h3>2.1<a class="headerlink" href="#id3" title="Permalink to this headline">¶</a></h3>
 <ul class="simple">
 <li>Added <cite>host</cite>, <cite>port</cite> and <cite>secure</cite> attributes on protocols.</li>
 <li>Added support for providing and checking <a class="reference external" href="https://tools.ietf.org/html/rfc6455#section-10.2">Origin</a>.</li>
 </ul>
 </div>
-<div class="section" id="id3">
-<h3>2.0<a class="headerlink" href="#id3" title="Permalink to this headline">¶</a></h3>
+<div class="section" id="id4">
+<h3>2.0<a class="headerlink" href="#id4" title="Permalink to this headline">¶</a></h3>
 <ul class="simple">
 <li>Backwards-incompatible API change:
 <a class="reference internal" href="#websockets.protocol.WebSocketCommonProtocol.send" title="websockets.protocol.WebSocketCommonProtocol.send"><tt class="xref py py-meth docutils literal"><span class="pre">send()</span></tt></a>,
@@ -572,8 +578,8 @@ They used to be regular functions.</li>
 <li>Add flow control.</li>
 </ul>
 </div>
-<div class="section" id="id4">
-<h3>1.0<a class="headerlink" href="#id4" title="Permalink to this headline">¶</a></h3>
+<div class="section" id="id5">
+<h3>1.0<a class="headerlink" href="#id5" title="Permalink to this headline">¶</a></h3>
 <ul class="simple">
 <li>Initial public release.</li>
 </ul>
@@ -642,10 +648,11 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 </ul>
 </li>
 <li><a class="reference internal" href="#changelog">Changelog</a><ul>
-<li><a class="reference internal" href="#id1">2.2</a></li>
-<li><a class="reference internal" href="#id2">2.1</a></li>
-<li><a class="reference internal" href="#id3">2.0</a></li>
-<li><a class="reference internal" href="#id4">1.0</a></li>
+<li><a class="reference internal" href="#id1">2.3</a></li>
+<li><a class="reference internal" href="#id2">2.2</a></li>
+<li><a class="reference internal" href="#id3">2.1</a></li>
+<li><a class="reference internal" href="#id4">2.0</a></li>
+<li><a class="reference internal" href="#id5">1.0</a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#limitations">Limitations</a></li>
@@ -685,12 +692,12 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
         <li class="right" >
           <a href="py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li><a href="#">websockets 2.2.0 documentation</a> &raquo;</li> 
+        <li><a href="#">websockets 2.3.0 documentation</a> &raquo;</li> 
       </ul>
     </div>
     <div class="footer">
         &copy; Copyright 2013-2014, Aymeric Augustin.
-      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.2.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.3.
     </div>
   </body>
 </html>
