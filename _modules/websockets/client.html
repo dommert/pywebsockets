@@ -6,7 +6,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>websockets.client &mdash; websockets 2.3.0 documentation</title>
+    <title>websockets.client &mdash; websockets 2.4 documentation</title>
     
     <link rel="stylesheet" href="../../_static/pydoctheme.css" type="text/css" />
     <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
@@ -14,7 +14,7 @@
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    '../../',
-        VERSION:     '2.3.0',
+        VERSION:     '2.4',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -23,7 +23,7 @@
     <script type="text/javascript" src="../../_static/jquery.js"></script>
     <script type="text/javascript" src="../../_static/underscore.js"></script>
     <script type="text/javascript" src="../../_static/doctools.js"></script>
-    <link rel="top" title="websockets 2.3.0 documentation" href="../../index.html" />
+    <link rel="top" title="websockets 2.4 documentation" href="../../index.html" />
     <link rel="up" title="Module code" href="../index.html" /> 
   </head>
   <body>
@@ -36,7 +36,7 @@
         <li class="right" >
           <a href="../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li><a href="../../index.html">websockets 2.3.0 documentation</a> &raquo;</li>
+        <li><a href="../../index.html">websockets 2.4 documentation</a> &raquo;</li>
           <li><a href="../index.html" accesskey="U">Module code</a> &raquo;</li> 
       </ul>
     </div>  
@@ -74,11 +74,14 @@
     <span class="n">state</span> <span class="o">=</span> <span class="s">&#39;CONNECTING&#39;</span>
 
     <span class="nd">@asyncio.coroutine</span>
-<div class="viewcode-block" id="WebSocketClientProtocol.handshake"><a class="viewcode-back" href="../../index.html#websockets.client.WebSocketClientProtocol.handshake">[docs]</a>    <span class="k">def</span> <span class="nf">handshake</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">wsuri</span><span class="p">,</span> <span class="n">origin</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+<div class="viewcode-block" id="WebSocketClientProtocol.handshake"><a class="viewcode-back" href="../../index.html#websockets.client.WebSocketClientProtocol.handshake">[docs]</a>    <span class="k">def</span> <span class="nf">handshake</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">wsuri</span><span class="p">,</span> <span class="n">origin</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">subprotocols</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Perform the client side of the opening handshake.</span>
 
 <span class="sd">        If provided, ``origin`` sets the HTTP Origin header.</span>
+
+<span class="sd">        If provided, ``subprotocols`` is a list of supported subprotocols, in</span>
+<span class="sd">        order of decreasing preference.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">headers</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="n">set_header</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span><span class="p">:</span> <span class="n">headers</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">k</span><span class="p">,</span> <span class="n">v</span><span class="p">))</span>
@@ -88,6 +91,8 @@
             <span class="n">set_header</span><span class="p">(</span><span class="s">&#39;Host&#39;</span><span class="p">,</span> <span class="s">&#39;{}:{}&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">wsuri</span><span class="o">.</span><span class="n">host</span><span class="p">,</span> <span class="n">wsuri</span><span class="o">.</span><span class="n">port</span><span class="p">))</span>
         <span class="k">if</span> <span class="n">origin</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
             <span class="n">set_header</span><span class="p">(</span><span class="s">&#39;Origin&#39;</span><span class="p">,</span> <span class="n">origin</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">subprotocols</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="n">set_header</span><span class="p">(</span><span class="s">&#39;Sec-WebSocket-Protocol&#39;</span><span class="p">,</span> <span class="s">&#39;, &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">subprotocols</span><span class="p">))</span>
         <span class="n">set_header</span><span class="p">(</span><span class="s">&#39;User-Agent&#39;</span><span class="p">,</span> <span class="n">USER_AGENT</span><span class="p">)</span>
         <span class="n">key</span> <span class="o">=</span> <span class="n">build_request</span><span class="p">(</span><span class="n">set_header</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">raw_request_headers</span> <span class="o">=</span> <span class="n">headers</span>
@@ -111,17 +116,26 @@
         <span class="n">get_header</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">k</span><span class="p">:</span> <span class="n">headers</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="s">&#39;&#39;</span><span class="p">)</span>
         <span class="n">check_response</span><span class="p">(</span><span class="n">get_header</span><span class="p">,</span> <span class="n">key</span><span class="p">)</span>
 
+        <span class="bp">self</span><span class="o">.</span><span class="n">subprotocol</span> <span class="o">=</span> <span class="n">headers</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s">&#39;Sec-WebSocket-Protocol&#39;</span><span class="p">,</span> <span class="bp">None</span><span class="p">)</span>
+        <span class="k">if</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">subprotocol</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span>
+                <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">subprotocol</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">subprotocols</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="n">InvalidHandshake</span><span class="p">(</span>
+                    <span class="s">&quot;Unknown subprotocol: {}&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">subprotocol</span><span class="p">))</span>
+
         <span class="bp">self</span><span class="o">.</span><span class="n">state</span> <span class="o">=</span> <span class="s">&#39;OPEN&#39;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">opening_handshake</span><span class="o">.</span><span class="n">set_result</span><span class="p">(</span><span class="bp">True</span><span class="p">)</span>
 
 </div></div>
 <span class="nd">@asyncio.coroutine</span>
 <div class="viewcode-block" id="connect"><a class="viewcode-back" href="../../index.html#websockets.client.connect">[docs]</a><span class="k">def</span> <span class="nf">connect</span><span class="p">(</span><span class="n">uri</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span>
-            <span class="n">klass</span><span class="o">=</span><span class="n">WebSocketClientProtocol</span><span class="p">,</span> <span class="n">origin</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwds</span><span class="p">):</span>
+            <span class="n">loop</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">klass</span><span class="o">=</span><span class="n">WebSocketClientProtocol</span><span class="p">,</span> <span class="n">origin</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span>
+            <span class="n">subprotocols</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwds</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    This coroutine connects to a WebSocket server.</span>
 
-<span class="sd">    It accepts an ``origin`` keyword argument to set the Origin HTTP header.</span>
+<span class="sd">    It accepts an ``origin`` keyword argument to set the Origin HTTP header</span>
+<span class="sd">    and a ``subprotocols`` keyword argument to provide a list of supported</span>
+<span class="sd">    subprotocols.</span>
 
 <span class="sd">    It&#39;s a thin wrapper around the event loop&#39;s `create_connection` method.</span>
 <span class="sd">    Extra keyword arguments are passed to `create_server`.</span>
@@ -140,6 +154,9 @@
 <span class="sd">    Connection&quot; in RFC 6455, except for the requirement that &quot;there MUST be no</span>
 <span class="sd">    more than one connection in a CONNECTING state.&quot;</span>
 <span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">loop</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="n">loop</span> <span class="o">=</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">get_event_loop</span><span class="p">()</span>
+
     <span class="n">wsuri</span> <span class="o">=</span> <span class="n">parse_uri</span><span class="p">(</span><span class="n">uri</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">wsuri</span><span class="o">.</span><span class="n">secure</span><span class="p">:</span>
         <span class="n">kwds</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s">&#39;ssl&#39;</span><span class="p">,</span> <span class="bp">True</span><span class="p">)</span>
@@ -147,11 +164,13 @@
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s">&quot;connect() received a SSL context for a ws:// URI. &quot;</span>
                          <span class="s">&quot;Use a wss:// URI to enable TLS.&quot;</span><span class="p">)</span>
     <span class="n">factory</span> <span class="o">=</span> <span class="k">lambda</span><span class="p">:</span> <span class="n">klass</span><span class="p">(</span><span class="n">host</span><span class="o">=</span><span class="n">wsuri</span><span class="o">.</span><span class="n">host</span><span class="p">,</span> <span class="n">port</span><span class="o">=</span><span class="n">wsuri</span><span class="o">.</span><span class="n">port</span><span class="p">,</span> <span class="n">secure</span><span class="o">=</span><span class="n">wsuri</span><span class="o">.</span><span class="n">secure</span><span class="p">)</span>
-    <span class="n">transport</span><span class="p">,</span> <span class="n">protocol</span> <span class="o">=</span> <span class="k">yield from</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">get_event_loop</span><span class="p">()</span><span class="o">.</span><span class="n">create_connection</span><span class="p">(</span>
+
+    <span class="n">transport</span><span class="p">,</span> <span class="n">protocol</span> <span class="o">=</span> <span class="k">yield from</span> <span class="n">loop</span><span class="o">.</span><span class="n">create_connection</span><span class="p">(</span>
             <span class="n">factory</span><span class="p">,</span> <span class="n">wsuri</span><span class="o">.</span><span class="n">host</span><span class="p">,</span> <span class="n">wsuri</span><span class="o">.</span><span class="n">port</span><span class="p">,</span> <span class="o">**</span><span class="n">kwds</span><span class="p">)</span>
 
     <span class="k">try</span><span class="p">:</span>
-        <span class="k">yield from</span> <span class="n">protocol</span><span class="o">.</span><span class="n">handshake</span><span class="p">(</span><span class="n">wsuri</span><span class="p">,</span> <span class="n">origin</span><span class="o">=</span><span class="n">origin</span><span class="p">)</span>
+        <span class="k">yield from</span> <span class="n">protocol</span><span class="o">.</span><span class="n">handshake</span><span class="p">(</span>
+                <span class="n">wsuri</span><span class="p">,</span> <span class="n">origin</span><span class="o">=</span><span class="n">origin</span><span class="p">,</span> <span class="n">subprotocols</span><span class="o">=</span><span class="n">subprotocols</span><span class="p">)</span>
     <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
         <span class="n">protocol</span><span class="o">.</span><span class="n">writer</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
         <span class="k">raise</span>
@@ -190,12 +209,12 @@
         <li class="right" >
           <a href="../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li><a href="../../index.html">websockets 2.3.0 documentation</a> &raquo;</li>
+        <li><a href="../../index.html">websockets 2.4 documentation</a> &raquo;</li>
           <li><a href="../index.html" >Module code</a> &raquo;</li> 
       </ul>
     </div>
     <div class="footer">
-        &copy; Copyright 2013-2014, Aymeric Augustin.
+        &copy; Copyright 2013-2015, Aymeric Augustin.
       Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.3.
     </div>
   </body>

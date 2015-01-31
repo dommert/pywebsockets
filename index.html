@@ -6,7 +6,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>WebSockets &mdash; websockets 2.3.0 documentation</title>
+    <title>WebSockets &mdash; websockets 2.4 documentation</title>
     
     <link rel="stylesheet" href="_static/pydoctheme.css" type="text/css" />
     <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
@@ -14,7 +14,7 @@
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    './',
-        VERSION:     '2.3.0',
+        VERSION:     '2.4',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -23,7 +23,7 @@
     <script type="text/javascript" src="_static/jquery.js"></script>
     <script type="text/javascript" src="_static/underscore.js"></script>
     <script type="text/javascript" src="_static/doctools.js"></script>
-    <link rel="top" title="websockets 2.3.0 documentation" href="#" /> 
+    <link rel="top" title="websockets 2.4 documentation" href="#" /> 
   </head>
   <body>
     <div class="related">
@@ -35,7 +35,7 @@
         <li class="right" >
           <a href="py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li><a href="#">websockets 2.3.0 documentation</a> &raquo;</li> 
+        <li><a href="#">websockets 2.4 documentation</a> &raquo;</li> 
       </ul>
     </div>  
 
@@ -165,7 +165,7 @@ in this document is a private API.</p>
 <p>The <a class="reference internal" href="#module-websockets.server" title="websockets.server"><tt class="xref py py-mod docutils literal"><span class="pre">websockets.server</span></tt></a> module defines a simple WebSocket server API.</p>
 <dl class="function">
 <dt id="websockets.server.serve">
-<tt class="descclassname">websockets.server.</tt><tt class="descname">serve</tt><big>(</big><em>ws_handler</em>, <em>host=None</em>, <em>port=None</em>, <em>*</em>, <em>klass=WebSocketServerProtocol</em>, <em>origins=None</em>, <em>**kwds</em><big>)</big><a class="reference internal" href="_modules/websockets/server.html#serve"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#websockets.server.serve" title="Permalink to this definition">¶</a></dt>
+<tt class="descclassname">websockets.server.</tt><tt class="descname">serve</tt><big>(</big><em>ws_handler</em>, <em>host=None</em>, <em>port=None</em>, <em>*</em>, <em>loop=None</em>, <em>klass=WebSocketServerProtocol</em>, <em>origins=None</em>, <em>subprotocols=None</em>, <em>**kwds</em><big>)</big><a class="reference internal" href="_modules/websockets/server.html#serve"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#websockets.server.serve" title="Permalink to this definition">¶</a></dt>
 <dd><p>This coroutine creates a WebSocket server.</p>
 <p>It&#8217;s a thin wrapper around the event loop&#8217;s <cite>create_server</cite> method.
 <cite>host</cite>, <cite>port</cite> as well as extra keyword arguments are passed to
@@ -173,7 +173,8 @@ in this document is a private API.</p>
 <p><cite>ws_handler</cite> is the WebSocket handler. It must be a coroutine accepting
 two arguments: a <a class="reference internal" href="#websockets.server.WebSocketServerProtocol" title="websockets.server.WebSocketServerProtocol"><tt class="xref py py-class docutils literal"><span class="pre">WebSocketServerProtocol</span></tt></a> and
 the request URI. If provided, <cite>origin</cite> is a list of acceptable Origin HTTP
-headers. Include <tt class="docutils literal"><span class="pre">''</span></tt> if the lack of an origin is acceptable.</p>
+headers. Include <tt class="docutils literal"><span class="pre">''</span></tt> if the lack of an origin is acceptable. If
+provided, <cite>subprotocols</cite> is a list of supported subprotocols.</p>
 <p>It returns a <cite>Server</cite> object with a <cite>close</cite> method to stop the server.</p>
 <p>Whenever a client connects, the server accepts the connection, creates a
 <a class="reference internal" href="#websockets.server.WebSocketServerProtocol" title="websockets.server.WebSocketServerProtocol"><tt class="xref py py-class docutils literal"><span class="pre">WebSocketServerProtocol</span></tt></a>, performs the opening
@@ -201,11 +202,17 @@ easier if you configure logging to print them:</p>
 implementation. Its support for HTTP responses is very limited.</p>
 <dl class="method">
 <dt id="websockets.server.WebSocketServerProtocol.handshake">
-<tt class="descname">handshake</tt><big>(</big><em>origins=None</em><big>)</big><a class="reference internal" href="_modules/websockets/server.html#WebSocketServerProtocol.handshake"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#websockets.server.WebSocketServerProtocol.handshake" title="Permalink to this definition">¶</a></dt>
+<tt class="descname">handshake</tt><big>(</big><em>origins=None</em>, <em>subprotocols=None</em><big>)</big><a class="reference internal" href="_modules/websockets/server.html#WebSocketServerProtocol.handshake"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#websockets.server.WebSocketServerProtocol.handshake" title="Permalink to this definition">¶</a></dt>
 <dd><p>Perform the server side of the opening handshake.</p>
 <p>If provided, <tt class="docutils literal"><span class="pre">origins</span></tt> is a list of acceptable HTTP Origin values.
 Include <tt class="docutils literal"><span class="pre">''</span></tt> if the lack of an origin is acceptable.</p>
 <p>Return the URI of the request.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="websockets.server.WebSocketServerProtocol.select_subprotocol">
+<tt class="descname">select_subprotocol</tt><big>(</big><em>client_protos</em>, <em>server_protos</em><big>)</big><a class="reference internal" href="_modules/websockets/server.html#WebSocketServerProtocol.select_subprotocol"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#websockets.server.WebSocketServerProtocol.select_subprotocol" title="Permalink to this definition">¶</a></dt>
+<dd><p>Pick a subprotocol among those offered by the client.</p>
 </dd></dl>
 
 </dd></dl>
@@ -216,9 +223,11 @@ Include <tt class="docutils literal"><span class="pre">''</span></tt> if the lac
 <p>The <a class="reference internal" href="#module-websockets.client" title="websockets.client"><tt class="xref py py-mod docutils literal"><span class="pre">websockets.client</span></tt></a> module defines a simple WebSocket client API.</p>
 <dl class="function">
 <dt id="websockets.client.connect">
-<tt class="descclassname">websockets.client.</tt><tt class="descname">connect</tt><big>(</big><em>uri</em>, <em>*</em>, <em>klass=WebSocketClientProtocol</em>, <em>origin=None</em>, <em>**kwds</em><big>)</big><a class="reference internal" href="_modules/websockets/client.html#connect"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#websockets.client.connect" title="Permalink to this definition">¶</a></dt>
+<tt class="descclassname">websockets.client.</tt><tt class="descname">connect</tt><big>(</big><em>uri</em>, <em>*</em>, <em>loop=None</em>, <em>klass=WebSocketClientProtocol</em>, <em>origin=None</em>, <em>subprotocols=None</em>, <em>**kwds</em><big>)</big><a class="reference internal" href="_modules/websockets/client.html#connect"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#websockets.client.connect" title="Permalink to this definition">¶</a></dt>
 <dd><p>This coroutine connects to a WebSocket server.</p>
-<p>It accepts an <tt class="docutils literal"><span class="pre">origin</span></tt> keyword argument to set the Origin HTTP header.</p>
+<p>It accepts an <tt class="docutils literal"><span class="pre">origin</span></tt> keyword argument to set the Origin HTTP header
+and a <tt class="docutils literal"><span class="pre">subprotocols</span></tt> keyword argument to provide a list of supported
+subprotocols.</p>
 <p>It&#8217;s a thin wrapper around the event loop&#8217;s <cite>create_connection</cite> method.
 Extra keyword arguments are passed to <cite>create_server</cite>.</p>
 <p>It returns a <a class="reference internal" href="#websockets.client.WebSocketClientProtocol" title="websockets.client.WebSocketClientProtocol"><tt class="xref py py-class docutils literal"><span class="pre">WebSocketClientProtocol</span></tt></a> which can
@@ -241,9 +250,11 @@ more than one connection in a CONNECTING state.&#8221;</p>
 <a class="reference internal" href="#websockets.protocol.WebSocketCommonProtocol" title="websockets.protocol.WebSocketCommonProtocol"><tt class="xref py py-class docutils literal"><span class="pre">WebSocketCommonProtocol</span></tt></a>.</p>
 <dl class="method">
 <dt id="websockets.client.WebSocketClientProtocol.handshake">
-<tt class="descname">handshake</tt><big>(</big><em>wsuri</em>, <em>origin=None</em><big>)</big><a class="reference internal" href="_modules/websockets/client.html#WebSocketClientProtocol.handshake"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#websockets.client.WebSocketClientProtocol.handshake" title="Permalink to this definition">¶</a></dt>
+<tt class="descname">handshake</tt><big>(</big><em>wsuri</em>, <em>origin=None</em>, <em>subprotocols=None</em><big>)</big><a class="reference internal" href="_modules/websockets/client.html#WebSocketClientProtocol.handshake"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#websockets.client.WebSocketClientProtocol.handshake" title="Permalink to this definition">¶</a></dt>
 <dd><p>Perform the client side of the opening handshake.</p>
 <p>If provided, <tt class="docutils literal"><span class="pre">origin</span></tt> sets the HTTP Origin header.</p>
+<p>If provided, <tt class="docutils literal"><span class="pre">subprotocols</span></tt> is a list of supported subprotocols, in
+order of decreasing preference.</p>
 </dd></dl>
 
 </dd></dl>
@@ -274,6 +285,8 @@ this time on the server side and twice this time on the client side.</p>
 in bytes. The default value is 1MB. <tt class="docutils literal"><span class="pre">None</span></tt> disables the limit. If a
 message larger than the maximum size is received, <a class="reference internal" href="#websockets.protocol.WebSocketCommonProtocol.recv" title="websockets.protocol.WebSocketCommonProtocol.recv"><tt class="xref py py-meth docutils literal"><span class="pre">recv()</span></tt></a> will
 return <tt class="docutils literal"><span class="pre">None</span></tt> and the connection will be closed with status code 1009.</p>
+<p>Once the handshake is complete, if a subprotocol was negotiated, it&#8217;s
+available in the <tt class="xref py py-attr docutils literal"><span class="pre">subprotocol</span></tt> attribute.</p>
 <p>Once the connection is closed, the status code is available in the
 <tt class="xref py py-attr docutils literal"><span class="pre">close_code</span></tt> attribute and the reason in <tt class="xref py py-attr docutils literal"><span class="pre">close_reason</span></tt>.</p>
 <dl class="attribute">
@@ -549,26 +562,35 @@ is a <a class="reference external" href="http://docs.python.org/3/library/email.
 <div class="section" id="changelog">
 <h2>Changelog<a class="headerlink" href="#changelog" title="Permalink to this headline">¶</a></h2>
 <div class="section" id="id1">
-<h3>2.3<a class="headerlink" href="#id1" title="Permalink to this headline">¶</a></h3>
+<h3>2.4<a class="headerlink" href="#id1" title="Permalink to this headline">¶</a></h3>
+<ul class="simple">
+<li>Added support for subprotocols.</li>
+<li>Supported non-default event loop.</li>
+<li>Added <cite>loop</cite> argument to <a class="reference internal" href="#websockets.client.connect" title="websockets.client.connect"><tt class="xref py py-func docutils literal"><span class="pre">connect()</span></tt></a> and
+<a class="reference internal" href="#websockets.server.serve" title="websockets.server.serve"><tt class="xref py py-func docutils literal"><span class="pre">serve()</span></tt></a>.</li>
+</ul>
+</div>
+<div class="section" id="id2">
+<h3>2.3<a class="headerlink" href="#id2" title="Permalink to this headline">¶</a></h3>
 <ul class="simple">
 <li>Improved compliance of close codes.</li>
 </ul>
 </div>
-<div class="section" id="id2">
-<h3>2.2<a class="headerlink" href="#id2" title="Permalink to this headline">¶</a></h3>
+<div class="section" id="id3">
+<h3>2.2<a class="headerlink" href="#id3" title="Permalink to this headline">¶</a></h3>
 <ul class="simple">
 <li>Added support for limiting message size.</li>
 </ul>
 </div>
-<div class="section" id="id3">
-<h3>2.1<a class="headerlink" href="#id3" title="Permalink to this headline">¶</a></h3>
+<div class="section" id="id4">
+<h3>2.1<a class="headerlink" href="#id4" title="Permalink to this headline">¶</a></h3>
 <ul class="simple">
 <li>Added <cite>host</cite>, <cite>port</cite> and <cite>secure</cite> attributes on protocols.</li>
 <li>Added support for providing and checking <a class="reference external" href="https://tools.ietf.org/html/rfc6455#section-10.2">Origin</a>.</li>
 </ul>
 </div>
-<div class="section" id="id4">
-<h3>2.0<a class="headerlink" href="#id4" title="Permalink to this headline">¶</a></h3>
+<div class="section" id="id5">
+<h3>2.0<a class="headerlink" href="#id5" title="Permalink to this headline">¶</a></h3>
 <ul class="simple">
 <li>Backwards-incompatible API change:
 <a class="reference internal" href="#websockets.protocol.WebSocketCommonProtocol.send" title="websockets.protocol.WebSocketCommonProtocol.send"><tt class="xref py py-meth docutils literal"><span class="pre">send()</span></tt></a>,
@@ -578,8 +600,8 @@ They used to be regular functions.</li>
 <li>Add flow control.</li>
 </ul>
 </div>
-<div class="section" id="id5">
-<h3>1.0<a class="headerlink" href="#id5" title="Permalink to this headline">¶</a></h3>
+<div class="section" id="id6">
+<h3>1.0<a class="headerlink" href="#id6" title="Permalink to this headline">¶</a></h3>
 <ul class="simple">
 <li>Initial public release.</li>
 </ul>
@@ -587,8 +609,8 @@ They used to be regular functions.</li>
 </div>
 <div class="section" id="limitations">
 <h2>Limitations<a class="headerlink" href="#limitations" title="Permalink to this headline">¶</a></h2>
-<p><a class="reference external" href="http://tools.ietf.org/html/rfc6455#section-1.9">Subprotocols</a> and <a class="reference external" href="http://tools.ietf.org/html/rfc6455#section-9">Extensions</a> aren&#8217;t implemented. Few subprotocols and no
-extensions are <a class="reference external" href="http://www.iana.org/assignments/websocket/websocket.xml">registered</a> at the time of writing.</p>
+<p><a class="reference external" href="http://tools.ietf.org/html/rfc6455#section-9">Extensions</a> aren&#8217;t implemented. No extensions are <a class="reference external" href="http://www.iana.org/assignments/websocket/websocket.xml">registered</a> at the time of
+writing.</p>
 </div>
 <div class="section" id="license">
 <h2>License<a class="headerlink" href="#license" title="Permalink to this headline">¶</a></h2>
@@ -648,11 +670,12 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 </ul>
 </li>
 <li><a class="reference internal" href="#changelog">Changelog</a><ul>
-<li><a class="reference internal" href="#id1">2.3</a></li>
-<li><a class="reference internal" href="#id2">2.2</a></li>
-<li><a class="reference internal" href="#id3">2.1</a></li>
-<li><a class="reference internal" href="#id4">2.0</a></li>
-<li><a class="reference internal" href="#id5">1.0</a></li>
+<li><a class="reference internal" href="#id1">2.4</a></li>
+<li><a class="reference internal" href="#id2">2.3</a></li>
+<li><a class="reference internal" href="#id3">2.2</a></li>
+<li><a class="reference internal" href="#id4">2.1</a></li>
+<li><a class="reference internal" href="#id5">2.0</a></li>
+<li><a class="reference internal" href="#id6">1.0</a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#limitations">Limitations</a></li>
@@ -692,11 +715,11 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
         <li class="right" >
           <a href="py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li><a href="#">websockets 2.3.0 documentation</a> &raquo;</li> 
+        <li><a href="#">websockets 2.4 documentation</a> &raquo;</li> 
       </ul>
     </div>
     <div class="footer">
-        &copy; Copyright 2013-2014, Aymeric Augustin.
+        &copy; Copyright 2013-2015, Aymeric Augustin.
       Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.3.
     </div>
   </body>
