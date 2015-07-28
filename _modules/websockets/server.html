@@ -6,7 +6,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>websockets.server &mdash; websockets 2.4 documentation</title>
+    <title>websockets.server &mdash; websockets 2.5 documentation</title>
     
     <link rel="stylesheet" href="../../_static/pydoctheme.css" type="text/css" />
     <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
@@ -14,7 +14,7 @@
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    '../../',
-        VERSION:     '2.4',
+        VERSION:     '2.5',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -23,11 +23,11 @@
     <script type="text/javascript" src="../../_static/jquery.js"></script>
     <script type="text/javascript" src="../../_static/underscore.js"></script>
     <script type="text/javascript" src="../../_static/doctools.js"></script>
-    <link rel="top" title="websockets 2.4 documentation" href="../../index.html" />
+    <link rel="top" title="websockets 2.5 documentation" href="../../index.html" />
     <link rel="up" title="Module code" href="../index.html" /> 
   </head>
-  <body>
-    <div class="related">
+  <body role="document">
+    <div class="related" role="navigation" aria-label="related navigation">
       <h3>Navigation</h3>
       <ul>
         <li class="right" style="margin-right: 10px">
@@ -36,15 +36,15 @@
         <li class="right" >
           <a href="../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li><a href="../../index.html">websockets 2.4 documentation</a> &raquo;</li>
-          <li><a href="../index.html" accesskey="U">Module code</a> &raquo;</li> 
+        <li class="nav-item nav-item-0"><a href="../../index.html">websockets 2.5 documentation</a> &raquo;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" accesskey="U">Module code</a> &raquo;</li> 
       </ul>
     </div>  
 
     <div class="document">
       <div class="documentwrapper">
         <div class="bodywrapper">
-          <div class="body">
+          <div class="body" role="main">
             
   <h1>Source code for websockets.server</h1><div class="highlight"><pre>
 <span class="sd">&quot;&quot;&quot;</span>
@@ -53,14 +53,15 @@
 
 <span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span><span class="s">&#39;serve&#39;</span><span class="p">,</span> <span class="s">&#39;WebSocketServerProtocol&#39;</span><span class="p">]</span>
 
+<span class="kn">import</span> <span class="nn">asyncio</span>
+<span class="kn">import</span> <span class="nn">collections.abc</span>
+<span class="kn">import</span> <span class="nn">email.message</span>
 <span class="kn">import</span> <span class="nn">logging</span>
 
-<span class="kn">import</span> <span class="nn">asyncio</span>
-
-<span class="kn">from</span> <span class="nn">.exceptions</span> <span class="kn">import</span> <span class="n">InvalidHandshake</span>
-<span class="kn">from</span> <span class="nn">.handshake</span> <span class="kn">import</span> <span class="n">check_request</span><span class="p">,</span> <span class="n">build_response</span>
-<span class="kn">from</span> <span class="nn">.http</span> <span class="kn">import</span> <span class="n">read_request</span><span class="p">,</span> <span class="n">USER_AGENT</span>
-<span class="kn">from</span> <span class="nn">.protocol</span> <span class="kn">import</span> <span class="n">WebSocketCommonProtocol</span>
+<span class="kn">from</span> <span class="nn">.exceptions</span> <span class="kn">import</span> <span class="n">InvalidHandshake</span><span class="p">,</span> <span class="n">InvalidOrigin</span>
+<span class="kn">from</span> <span class="nn">.handshake</span> <span class="kn">import</span> <span class="n">build_response</span><span class="p">,</span> <span class="n">check_request</span>
+<span class="kn">from</span> <span class="nn">.http</span> <span class="kn">import</span> <span class="n">USER_AGENT</span><span class="p">,</span> <span class="n">read_request</span>
+<span class="kn">from</span> <span class="nn">.protocol</span> <span class="kn">import</span> <span class="n">CONNECTING</span><span class="p">,</span> <span class="n">OPEN</span><span class="p">,</span> <span class="n">WebSocketCommonProtocol</span>
 
 
 <span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="n">__name__</span><span class="p">)</span>
@@ -68,27 +69,28 @@
 
 <div class="viewcode-block" id="WebSocketServerProtocol"><a class="viewcode-back" href="../../index.html#websockets.server.WebSocketServerProtocol">[docs]</a><span class="k">class</span> <span class="nc">WebSocketServerProtocol</span><span class="p">(</span><span class="n">WebSocketCommonProtocol</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Complete WebSocket server implementation as an asyncio protocol.</span>
+<span class="sd">    Complete WebSocket server implementation as an :class:`asyncio.Protocol`.</span>
 
 <span class="sd">    This class inherits most of its methods from</span>
 <span class="sd">    :class:`~websockets.protocol.WebSocketCommonProtocol`.</span>
 
-<span class="sd">    For the sake of simplicity, this protocol doesn&#39;t inherit a proper HTTP</span>
-<span class="sd">    implementation. Its support for HTTP responses is very limited.</span>
+<span class="sd">    For the sake of simplicity, it doesn&#39;t rely on a full HTTP implementation.</span>
+<span class="sd">    Its support for HTTP responses is very limited.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="n">state</span> <span class="o">=</span> <span class="s">&#39;CONNECTING&#39;</span>
+    <span class="n">state</span> <span class="o">=</span> <span class="n">CONNECTING</span>
 
     <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ws_handler</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span>
-                 <span class="n">origins</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">subprotocols</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwds</span><span class="p">):</span>
+                 <span class="n">origins</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">subprotocols</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">extra_headers</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwds</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">ws_handler</span> <span class="o">=</span> <span class="n">ws_handler</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">origins</span> <span class="o">=</span> <span class="n">origins</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">subprotocols</span> <span class="o">=</span> <span class="n">subprotocols</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">extra_headers</span> <span class="o">=</span> <span class="n">extra_headers</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">__init__</span><span class="p">(</span><span class="o">**</span><span class="n">kwds</span><span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">connection_made</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">transport</span><span class="p">):</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">connection_made</span><span class="p">(</span><span class="n">transport</span><span class="p">)</span>
-        <span class="n">asyncio</span><span class="o">.</span><span class="n">async</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">handler</span><span class="p">(),</span> <span class="n">loop</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_loop</span><span class="p">)</span>
+        <span class="n">asyncio</span><span class="o">.</span><span class="n">async</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">handler</span><span class="p">(),</span> <span class="n">loop</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">loop</span><span class="p">)</span>
 
     <span class="nd">@asyncio.coroutine</span>
     <span class="k">def</span> <span class="nf">handler</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -98,10 +100,13 @@
 
             <span class="k">try</span><span class="p">:</span>
                 <span class="n">path</span> <span class="o">=</span> <span class="k">yield from</span> <span class="bp">self</span><span class="o">.</span><span class="n">handshake</span><span class="p">(</span>
-                    <span class="n">origins</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">origins</span><span class="p">,</span> <span class="n">subprotocols</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">subprotocols</span><span class="p">)</span>
+                    <span class="n">origins</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">origins</span><span class="p">,</span> <span class="n">subprotocols</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">subprotocols</span><span class="p">,</span>
+                    <span class="n">extra_headers</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">extra_headers</span><span class="p">)</span>
             <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
                 <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s">&quot;Exception in opening handshake: {}&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">exc</span><span class="p">))</span>
-                <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">exc</span><span class="p">,</span> <span class="n">InvalidHandshake</span><span class="p">):</span>
+                <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">exc</span><span class="p">,</span> <span class="n">InvalidOrigin</span><span class="p">):</span>
+                    <span class="n">response</span> <span class="o">=</span> <span class="s">&#39;HTTP/1.1 403 Forbidden</span><span class="se">\r\n\r\n</span><span class="s">&#39;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">exc</span><span class="p">)</span>
+                <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">exc</span><span class="p">,</span> <span class="n">InvalidHandshake</span><span class="p">):</span>
                     <span class="n">response</span> <span class="o">=</span> <span class="s">&#39;HTTP/1.1 400 Bad Request</span><span class="se">\r\n\r\n</span><span class="s">&#39;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">exc</span><span class="p">)</span>
                 <span class="k">else</span><span class="p">:</span>
                     <span class="n">response</span> <span class="o">=</span> <span class="p">(</span><span class="s">&#39;HTTP/1.1 500 Internal Server Error</span><span class="se">\r\n\r\n</span><span class="s">&#39;</span>
@@ -130,12 +135,19 @@
                 <span class="k">pass</span>
 
     <span class="nd">@asyncio.coroutine</span>
-<div class="viewcode-block" id="WebSocketServerProtocol.handshake"><a class="viewcode-back" href="../../index.html#websockets.server.WebSocketServerProtocol.handshake">[docs]</a>    <span class="k">def</span> <span class="nf">handshake</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">origins</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">subprotocols</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+<div class="viewcode-block" id="WebSocketServerProtocol.handshake"><a class="viewcode-back" href="../../index.html#websockets.server.WebSocketServerProtocol.handshake">[docs]</a>    <span class="k">def</span> <span class="nf">handshake</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">origins</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">subprotocols</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">extra_headers</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Perform the server side of the opening handshake.</span>
 
 <span class="sd">        If provided, ``origins`` is a list of acceptable HTTP Origin values.</span>
 <span class="sd">        Include ``&#39;&#39;`` if the lack of an origin is acceptable.</span>
+
+<span class="sd">        If provided, ``subprotocols`` is a list of supported subprotocols in</span>
+<span class="sd">        order of decreasing preference.</span>
+
+<span class="sd">        If provided, ``extra_headers`` sets additional HTTP response headers.</span>
+<span class="sd">        It can be a mapping or an iterable of (name, value) pairs. It can also</span>
+<span class="sd">        be a callable taking the request path and headers in arguments.</span>
 
 <span class="sd">        Return the URI of the request.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
@@ -145,28 +157,41 @@
         <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
             <span class="k">raise</span> <span class="n">InvalidHandshake</span><span class="p">(</span><span class="s">&quot;Malformed HTTP message&quot;</span><span class="p">)</span> <span class="kn">from</span> <span class="nn">exc</span>
 
+        <span class="bp">self</span><span class="o">.</span><span class="n">request_headers</span> <span class="o">=</span> <span class="n">headers</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">raw_request_headers</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">headers</span><span class="o">.</span><span class="n">raw_items</span><span class="p">())</span>
+
         <span class="n">get_header</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">k</span><span class="p">:</span> <span class="n">headers</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="s">&#39;&#39;</span><span class="p">)</span>
         <span class="n">key</span> <span class="o">=</span> <span class="n">check_request</span><span class="p">(</span><span class="n">get_header</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="n">origins</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
             <span class="n">origin</span> <span class="o">=</span> <span class="n">get_header</span><span class="p">(</span><span class="s">&#39;Origin&#39;</span><span class="p">)</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="nb">set</span><span class="p">(</span><span class="n">origin</span><span class="o">.</span><span class="n">split</span><span class="p">()</span> <span class="ow">or</span> <span class="p">[</span><span class="s">&#39;&#39;</span><span class="p">])</span> <span class="o">&lt;=</span> <span class="nb">set</span><span class="p">(</span><span class="n">origins</span><span class="p">):</span>
-                <span class="k">raise</span> <span class="n">InvalidHandshake</span><span class="p">(</span><span class="s">&quot;Bad origin: {}&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">origin</span><span class="p">))</span>
+                <span class="k">raise</span> <span class="n">InvalidOrigin</span><span class="p">(</span><span class="s">&quot;Origin not allowed: {}&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">origin</span><span class="p">))</span>
 
         <span class="k">if</span> <span class="n">subprotocols</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
             <span class="n">protocol</span> <span class="o">=</span> <span class="n">get_header</span><span class="p">(</span><span class="s">&#39;Sec-WebSocket-Protocol&#39;</span><span class="p">)</span>
             <span class="k">if</span> <span class="n">protocol</span><span class="p">:</span>
                 <span class="n">client_subprotocols</span> <span class="o">=</span> <span class="p">[</span><span class="n">p</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">protocol</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s">&#39;,&#39;</span><span class="p">)]</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">subprotocol</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">select_subprotocol</span><span class="p">(</span>
-                        <span class="n">client_subprotocols</span><span class="p">,</span> <span class="n">subprotocols</span><span class="p">)</span>
+                    <span class="n">client_subprotocols</span><span class="p">,</span> <span class="n">subprotocols</span><span class="p">)</span>
 
         <span class="n">headers</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="n">set_header</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span><span class="p">:</span> <span class="n">headers</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">k</span><span class="p">,</span> <span class="n">v</span><span class="p">))</span>
         <span class="n">set_header</span><span class="p">(</span><span class="s">&#39;Server&#39;</span><span class="p">,</span> <span class="n">USER_AGENT</span><span class="p">)</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">subprotocol</span><span class="p">:</span>
             <span class="n">set_header</span><span class="p">(</span><span class="s">&#39;Sec-WebSocket-Protocol&#39;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">subprotocol</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">extra_headers</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">callable</span><span class="p">(</span><span class="n">extra_headers</span><span class="p">):</span>
+                <span class="n">extra_headers</span> <span class="o">=</span> <span class="n">extra_headers</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">raw_request_headers</span><span class="p">)</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">extra_headers</span><span class="p">,</span> <span class="n">collections</span><span class="o">.</span><span class="n">abc</span><span class="o">.</span><span class="n">Mapping</span><span class="p">):</span>
+                <span class="n">extra_headers</span> <span class="o">=</span> <span class="n">extra_headers</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+            <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">extra_headers</span><span class="p">:</span>
+                <span class="n">set_header</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
         <span class="n">build_response</span><span class="p">(</span><span class="n">set_header</span><span class="p">,</span> <span class="n">key</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">response_headers</span> <span class="o">=</span> <span class="n">email</span><span class="o">.</span><span class="n">message</span><span class="o">.</span><span class="n">Message</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">headers</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">response_headers</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">raw_response_headers</span> <span class="o">=</span> <span class="n">headers</span>
 
         <span class="c"># Send handshake response. Since the status line and headers only</span>
@@ -177,7 +202,8 @@
         <span class="n">response</span> <span class="o">=</span> <span class="s">&#39;</span><span class="se">\r\n</span><span class="s">&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">response</span><span class="p">)</span><span class="o">.</span><span class="n">encode</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">writer</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">response</span><span class="p">)</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">state</span> <span class="o">=</span> <span class="s">&#39;OPEN&#39;</span>
+        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">state</span> <span class="o">==</span> <span class="n">CONNECTING</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">state</span> <span class="o">=</span> <span class="n">OPEN</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">opening_handshake</span><span class="o">.</span><span class="n">set_result</span><span class="p">(</span><span class="bp">True</span><span class="p">)</span>
 
         <span class="k">return</span> <span class="n">path</span>
@@ -195,36 +221,47 @@
 </div></div>
 <span class="nd">@asyncio.coroutine</span>
 <div class="viewcode-block" id="serve"><a class="viewcode-back" href="../../index.html#websockets.server.serve">[docs]</a><span class="k">def</span> <span class="nf">serve</span><span class="p">(</span><span class="n">ws_handler</span><span class="p">,</span> <span class="n">host</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">port</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span>
-          <span class="n">loop</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">klass</span><span class="o">=</span><span class="n">WebSocketServerProtocol</span><span class="p">,</span> <span class="n">origins</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span>
-          <span class="n">subprotocols</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwds</span><span class="p">):</span>
+          <span class="n">loop</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">klass</span><span class="o">=</span><span class="n">WebSocketServerProtocol</span><span class="p">,</span>
+          <span class="n">origins</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">subprotocols</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">extra_headers</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span>
+          <span class="o">**</span><span class="n">kwds</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    This coroutine creates a WebSocket server.</span>
 
-<span class="sd">    It&#39;s a thin wrapper around the event loop&#39;s `create_server` method.</span>
-<span class="sd">    `host`, `port` as well as extra keyword arguments are passed to</span>
-<span class="sd">    `create_server`.</span>
+<span class="sd">    It&#39;s a wrapper around the event loop&#39;s</span>
+<span class="sd">    :meth:`~asyncio.BaseEventLoop.create_server` method. ``host``, ``port`` as</span>
+<span class="sd">    well as extra keyword arguments are passed to</span>
+<span class="sd">    :meth:`~asyncio.BaseEventLoop.create_server`. For example, you can set the</span>
+<span class="sd">    ``ssl`` keyword argument to a :class:`~ssl.SSLContext` to enable TLS.</span>
 
-<span class="sd">    `ws_handler` is the WebSocket handler. It must be a coroutine accepting</span>
-<span class="sd">    two arguments: a :class:`~websockets.server.WebSocketServerProtocol` and</span>
-<span class="sd">    the request URI. If provided, `origin` is a list of acceptable Origin HTTP</span>
-<span class="sd">    headers. Include ``&#39;&#39;`` if the lack of an origin is acceptable. If</span>
-<span class="sd">    provided, `subprotocols` is a list of supported subprotocols.</span>
+<span class="sd">    ``ws_handler`` is the WebSocket handler. It must be a coroutine accepting</span>
+<span class="sd">    two arguments: a :class:`WebSocketServerProtocol` and the request URI.</span>
 
-<span class="sd">    It returns a `Server` object with a `close` method to stop the server.</span>
+<span class="sd">    :func:`serve` accepts several optional arguments:</span>
+
+<span class="sd">    * ``origins`` defines acceptable Origin HTTP headers — include</span>
+<span class="sd">      ``&#39;&#39;`` if the lack of an origin is acceptable</span>
+<span class="sd">    * ``subprotocols`` is a list of supported subprotocols in order of</span>
+<span class="sd">      decreasing preference</span>
+<span class="sd">    * ``extra_headers`` sets additional HTTP response headers — it can be a</span>
+<span class="sd">      mapping, an iterable of (name, value) pairs, or a callable taking the</span>
+<span class="sd">      request path and headers in arguments.</span>
+
+<span class="sd">    :func:`serve` yields a :class:`~asyncio.Server` which provides a</span>
+<span class="sd">    :meth:`~asyncio.Server.close` method and a</span>
+<span class="sd">    :meth:`~asyncio.Server.wait_closed` coroutine to stop serving requests.</span>
 
 <span class="sd">    Whenever a client connects, the server accepts the connection, creates a</span>
-<span class="sd">    :class:`~websockets.server.WebSocketServerProtocol`, performs the opening</span>
-<span class="sd">    handshake, and delegates to the WebSocket handler. Once the handler</span>
-<span class="sd">    completes, the server performs the closing handshake and closes the</span>
-<span class="sd">    connection.</span>
+<span class="sd">    :class:`WebSocketServerProtocol`, performs the opening handshake, and</span>
+<span class="sd">    delegates to the WebSocket handler. Once the handler completes, the server</span>
+<span class="sd">    performs the closing handshake and closes the connection.</span>
 
 <span class="sd">    Since there&#39;s no useful way to propagate exceptions triggered in handlers,</span>
-<span class="sd">    they&#39;re sent to the `websockets.server` logger instead. Debugging is much</span>
-<span class="sd">    easier if you configure logging to print them::</span>
+<span class="sd">    they&#39;re sent to the ``&#39;websockets.server&#39;`` logger instead. Debugging is</span>
+<span class="sd">    much easier if you configure logging to print them::</span>
 
 <span class="sd">        import logging</span>
 <span class="sd">        logger = logging.getLogger(&#39;websockets.server&#39;)</span>
-<span class="sd">        logger.setLevel(logging.DEBUG)</span>
+<span class="sd">        logger.setLevel(logging.ERROR)</span>
 <span class="sd">        logger.addHandler(logging.StreamHandler())</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">if</span> <span class="n">loop</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
@@ -232,17 +269,18 @@
 
     <span class="n">secure</span> <span class="o">=</span> <span class="n">kwds</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s">&#39;ssl&#39;</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span>
     <span class="n">factory</span> <span class="o">=</span> <span class="k">lambda</span><span class="p">:</span> <span class="n">klass</span><span class="p">(</span>
-            <span class="n">ws_handler</span><span class="p">,</span> <span class="n">host</span><span class="o">=</span><span class="n">host</span><span class="p">,</span> <span class="n">port</span><span class="o">=</span><span class="n">port</span><span class="p">,</span> <span class="n">secure</span><span class="o">=</span><span class="n">secure</span><span class="p">,</span>
-            <span class="n">origins</span><span class="o">=</span><span class="n">origins</span><span class="p">,</span> <span class="n">subprotocols</span><span class="o">=</span><span class="n">subprotocols</span><span class="p">)</span>
+        <span class="n">ws_handler</span><span class="p">,</span> <span class="n">host</span><span class="o">=</span><span class="n">host</span><span class="p">,</span> <span class="n">port</span><span class="o">=</span><span class="n">port</span><span class="p">,</span> <span class="n">secure</span><span class="o">=</span><span class="n">secure</span><span class="p">,</span>
+        <span class="n">origins</span><span class="o">=</span><span class="n">origins</span><span class="p">,</span> <span class="n">subprotocols</span><span class="o">=</span><span class="n">subprotocols</span><span class="p">,</span>
+        <span class="n">extra_headers</span><span class="o">=</span><span class="n">extra_headers</span><span class="p">,</span> <span class="n">loop</span><span class="o">=</span><span class="n">loop</span><span class="p">)</span>
     <span class="k">return</span> <span class="p">(</span><span class="k">yield from</span> <span class="n">loop</span><span class="o">.</span><span class="n">create_server</span><span class="p">(</span><span class="n">factory</span><span class="p">,</span> <span class="n">host</span><span class="p">,</span> <span class="n">port</span><span class="p">,</span> <span class="o">**</span><span class="n">kwds</span><span class="p">))</span></div>
 </pre></div>
 
           </div>
         </div>
       </div>
-      <div class="sphinxsidebar">
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
         <div class="sphinxsidebarwrapper">
-<div id="searchbox" style="display: none">
+<div id="searchbox" style="display: none" role="search">
   <h3>Quick search</h3>
     <form class="search" action="../../search.html" method="get">
       <input type="text" name="q" />
@@ -259,7 +297,7 @@
       </div>
       <div class="clearer"></div>
     </div>
-    <div class="related">
+    <div class="related" role="navigation" aria-label="related navigation">
       <h3>Navigation</h3>
       <ul>
         <li class="right" style="margin-right: 10px">
@@ -268,13 +306,13 @@
         <li class="right" >
           <a href="../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li><a href="../../index.html">websockets 2.4 documentation</a> &raquo;</li>
-          <li><a href="../index.html" >Module code</a> &raquo;</li> 
+        <li class="nav-item nav-item-0"><a href="../../index.html">websockets 2.5 documentation</a> &raquo;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" >Module code</a> &raquo;</li> 
       </ul>
     </div>
-    <div class="footer">
+    <div class="footer" role="contentinfo">
         &copy; Copyright 2013-2015, Aymeric Augustin.
-      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.3.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.3.1.
     </div>
   </body>
 </html>

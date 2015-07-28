@@ -6,7 +6,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>websockets.http &mdash; websockets 2.4 documentation</title>
+    <title>websockets.http &mdash; websockets 2.5 documentation</title>
     
     <link rel="stylesheet" href="../../_static/pydoctheme.css" type="text/css" />
     <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
@@ -14,7 +14,7 @@
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    '../../',
-        VERSION:     '2.4',
+        VERSION:     '2.5',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -23,11 +23,11 @@
     <script type="text/javascript" src="../../_static/jquery.js"></script>
     <script type="text/javascript" src="../../_static/underscore.js"></script>
     <script type="text/javascript" src="../../_static/doctools.js"></script>
-    <link rel="top" title="websockets 2.4 documentation" href="../../index.html" />
+    <link rel="top" title="websockets 2.5 documentation" href="../../index.html" />
     <link rel="up" title="Module code" href="../index.html" /> 
   </head>
-  <body>
-    <div class="related">
+  <body role="document">
+    <div class="related" role="navigation" aria-label="related navigation">
       <h3>Navigation</h3>
       <ul>
         <li class="right" style="margin-right: 10px">
@@ -36,21 +36,20 @@
         <li class="right" >
           <a href="../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li><a href="../../index.html">websockets 2.4 documentation</a> &raquo;</li>
-          <li><a href="../index.html" accesskey="U">Module code</a> &raquo;</li> 
+        <li class="nav-item nav-item-0"><a href="../../index.html">websockets 2.5 documentation</a> &raquo;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" accesskey="U">Module code</a> &raquo;</li> 
       </ul>
     </div>  
 
     <div class="document">
       <div class="documentwrapper">
         <div class="bodywrapper">
-          <div class="body">
+          <div class="body" role="main">
             
   <h1>Source code for websockets.http</h1><div class="highlight"><pre>
 <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">The :mod:`websockets.http` module provides HTTP parsing functions. They&#39;re</span>
-<span class="sd">merely adequate for the WebSocket handshake messages. They&#39;re used by the</span>
-<span class="sd">sample client and servers.</span>
+<span class="sd">merely adequate for the WebSocket handshake messages.</span>
 
 <span class="sd">These functions cannot be imported from :mod:`websockets`; they must be</span>
 <span class="sd">imported from :mod:`websockets.http`.</span>
@@ -58,11 +57,10 @@
 
 <span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span><span class="s">&#39;read_request&#39;</span><span class="p">,</span> <span class="s">&#39;read_response&#39;</span><span class="p">,</span> <span class="s">&#39;USER_AGENT&#39;</span><span class="p">]</span>
 
+<span class="kn">import</span> <span class="nn">asyncio</span>
 <span class="kn">import</span> <span class="nn">email.parser</span>
 <span class="kn">import</span> <span class="nn">io</span>
 <span class="kn">import</span> <span class="nn">sys</span>
-
-<span class="kn">import</span> <span class="nn">asyncio</span>
 
 <span class="kn">from</span> <span class="nn">.version</span> <span class="kn">import</span> <span class="n">version</span> <span class="k">as</span> <span class="n">websockets_version</span>
 
@@ -79,10 +77,11 @@
 <span class="nd">@asyncio.coroutine</span>
 <div class="viewcode-block" id="read_request"><a class="viewcode-back" href="../../index.html#websockets.http.read_request">[docs]</a><span class="k">def</span> <span class="nf">read_request</span><span class="p">(</span><span class="n">stream</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Read an HTTP/1.1 request from `stream`.</span>
+<span class="sd">    Read an HTTP/1.1 request from ``stream``.</span>
 
-<span class="sd">    Return `(path, headers)` where `path` is a :class:`str` and `headers` is a</span>
-<span class="sd">    :class:`~email.message.Message`; `path` isn&#39;t URL-decoded.</span>
+<span class="sd">    Return ``(path, headers)`` where ``path`` is a :class:`str` and</span>
+<span class="sd">    ``headers`` is a :class:`~email.message.Message`. ``path`` isn&#39;t</span>
+<span class="sd">    URL-decoded.</span>
 
 <span class="sd">    Raise an exception if the request isn&#39;t well formatted.</span>
 
@@ -100,10 +99,10 @@
 <span class="nd">@asyncio.coroutine</span>
 <div class="viewcode-block" id="read_response"><a class="viewcode-back" href="../../index.html#websockets.http.read_response">[docs]</a><span class="k">def</span> <span class="nf">read_response</span><span class="p">(</span><span class="n">stream</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Read an HTTP/1.1 response from `stream`.</span>
+<span class="sd">    Read an HTTP/1.1 response from ``stream``.</span>
 
-<span class="sd">    Return `(status, headers)` where `status` is a :class:`int` and `headers`</span>
-<span class="sd">    is a :class:`~email.message.Message`.</span>
+<span class="sd">    Return ``(status, headers)`` where ``status`` is a :class:`int` and</span>
+<span class="sd">    ``headers`` is a :class:`~email.message.Message`.</span>
 
 <span class="sd">    Raise an exception if the request isn&#39;t well formatted.</span>
 
@@ -119,10 +118,10 @@
 <span class="nd">@asyncio.coroutine</span>
 <span class="k">def</span> <span class="nf">read_message</span><span class="p">(</span><span class="n">stream</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Read an HTTP message from `stream`.</span>
+<span class="sd">    Read an HTTP message from ``stream``.</span>
 
-<span class="sd">    Return `(start_line, headers)` where `start_line` is :class:`bytes` and</span>
-<span class="sd">    `headers` is a :class:`~email.message.Message`.</span>
+<span class="sd">    Return ``(start_line, headers)`` where ``start_line`` is :class:`bytes`</span>
+<span class="sd">    and ``headers`` is a :class:`~email.message.Message`.</span>
 
 <span class="sd">    The message is assumed not to contain a body.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
@@ -143,7 +142,7 @@
 <span class="nd">@asyncio.coroutine</span>
 <span class="k">def</span> <span class="nf">read_line</span><span class="p">(</span><span class="n">stream</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Read a single line from `stream`.</span>
+<span class="sd">    Read a single line from ``stream``.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">line</span> <span class="o">=</span> <span class="k">yield from</span> <span class="n">stream</span><span class="o">.</span><span class="n">readline</span><span class="p">()</span>
     <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">line</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">MAX_LINE</span><span class="p">:</span>
@@ -156,9 +155,9 @@
           </div>
         </div>
       </div>
-      <div class="sphinxsidebar">
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
         <div class="sphinxsidebarwrapper">
-<div id="searchbox" style="display: none">
+<div id="searchbox" style="display: none" role="search">
   <h3>Quick search</h3>
     <form class="search" action="../../search.html" method="get">
       <input type="text" name="q" />
@@ -175,7 +174,7 @@
       </div>
       <div class="clearer"></div>
     </div>
-    <div class="related">
+    <div class="related" role="navigation" aria-label="related navigation">
       <h3>Navigation</h3>
       <ul>
         <li class="right" style="margin-right: 10px">
@@ -184,13 +183,13 @@
         <li class="right" >
           <a href="../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li><a href="../../index.html">websockets 2.4 documentation</a> &raquo;</li>
-          <li><a href="../index.html" >Module code</a> &raquo;</li> 
+        <li class="nav-item nav-item-0"><a href="../../index.html">websockets 2.5 documentation</a> &raquo;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" >Module code</a> &raquo;</li> 
       </ul>
     </div>
-    <div class="footer">
+    <div class="footer" role="contentinfo">
         &copy; Copyright 2013-2015, Aymeric Augustin.
-      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.3.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.3.1.
     </div>
   </body>
 </html>

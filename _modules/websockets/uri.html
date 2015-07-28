@@ -6,7 +6,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>websockets.uri &mdash; websockets 2.4 documentation</title>
+    <title>websockets.uri &mdash; websockets 2.5 documentation</title>
     
     <link rel="stylesheet" href="../../_static/pydoctheme.css" type="text/css" />
     <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
@@ -14,7 +14,7 @@
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    '../../',
-        VERSION:     '2.4',
+        VERSION:     '2.5',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -23,11 +23,11 @@
     <script type="text/javascript" src="../../_static/jquery.js"></script>
     <script type="text/javascript" src="../../_static/underscore.js"></script>
     <script type="text/javascript" src="../../_static/doctools.js"></script>
-    <link rel="top" title="websockets 2.4 documentation" href="../../index.html" />
+    <link rel="top" title="websockets 2.5 documentation" href="../../index.html" />
     <link rel="up" title="Module code" href="../index.html" /> 
   </head>
-  <body>
-    <div class="related">
+  <body role="document">
+    <div class="related" role="navigation" aria-label="related navigation">
       <h3>Navigation</h3>
       <ul>
         <li class="right" style="margin-right: 10px">
@@ -36,15 +36,15 @@
         <li class="right" >
           <a href="../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li><a href="../../index.html">websockets 2.4 documentation</a> &raquo;</li>
-          <li><a href="../index.html" accesskey="U">Module code</a> &raquo;</li> 
+        <li class="nav-item nav-item-0"><a href="../../index.html">websockets 2.5 documentation</a> &raquo;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" accesskey="U">Module code</a> &raquo;</li> 
       </ul>
     </div>  
 
     <div class="document">
       <div class="documentwrapper">
         <div class="bodywrapper">
-          <div class="body">
+          <div class="body" role="main">
             
   <h1>Source code for websockets.uri</h1><div class="highlight"><pre>
 <span class="sd">&quot;&quot;&quot;</span>
@@ -54,7 +54,7 @@
 <span class="sd">.. _section 3 of RFC 6455: http://tools.ietf.org/html/rfc6455#section-3</span>
 <span class="sd">&quot;&quot;&quot;</span>
 
-<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span><span class="s">&#39;parse_uri&#39;</span><span class="p">]</span>
+<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span><span class="s">&#39;parse_uri&#39;</span><span class="p">,</span> <span class="s">&#39;WebSocketURI&#39;</span><span class="p">]</span>
 
 <span class="kn">import</span> <span class="nn">collections</span>
 <span class="kn">import</span> <span class="nn">urllib.parse</span>
@@ -62,18 +62,24 @@
 <span class="kn">from</span> <span class="nn">.exceptions</span> <span class="kn">import</span> <span class="n">InvalidURI</span>
 
 
-<span class="n">WebSocketURI</span> <span class="o">=</span> <span class="n">collections</span><span class="o">.</span><span class="n">namedtuple</span><span class="p">(</span><span class="s">&#39;WebSocketURI&#39;</span><span class="p">,</span>
-        <span class="p">(</span><span class="s">&#39;secure&#39;</span><span class="p">,</span> <span class="s">&#39;host&#39;</span><span class="p">,</span> <span class="s">&#39;port&#39;</span><span class="p">,</span> <span class="s">&#39;resource_name&#39;</span><span class="p">))</span>
+<span class="n">WebSocketURI</span> <span class="o">=</span> <span class="n">collections</span><span class="o">.</span><span class="n">namedtuple</span><span class="p">(</span>
+    <span class="s">&#39;WebSocketURI&#39;</span><span class="p">,</span> <span class="p">(</span><span class="s">&#39;secure&#39;</span><span class="p">,</span> <span class="s">&#39;host&#39;</span><span class="p">,</span> <span class="s">&#39;port&#39;</span><span class="p">,</span> <span class="s">&#39;resource_name&#39;</span><span class="p">))</span>
+<span class="n">WebSocketURI</span><span class="o">.</span><span class="n">__doc__</span> <span class="o">=</span> <span class="s">&quot;&quot;&quot;WebSocket URI.</span>
+
+<span class="s">* ``secure`` is the secure flag</span>
+<span class="s">* ``host`` is the lower-case host</span>
+<span class="s">* ``port`` if the integer port, it&#39;s always provided even if it&#39;s the default</span>
+<span class="s">* ``resource_name`` is the resource name, that is, the path and optional query</span>
+<span class="s">&quot;&quot;&quot;</span>
 
 
 <div class="viewcode-block" id="parse_uri"><a class="viewcode-back" href="../../index.html#websockets.uri.parse_uri">[docs]</a><span class="k">def</span> <span class="nf">parse_uri</span><span class="p">(</span><span class="n">uri</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    This function parses and validates a WebSocket URI.</span>
 
-<span class="sd">    If the URI is valid, it returns a namedtuple `(secure, host, port,</span>
-<span class="sd">    resource_name)`</span>
+<span class="sd">    If the URI is valid, it returns a :class:`WebSocketURI`.</span>
 
-<span class="sd">    Otherwise, it raises an :exc:`InvalidURI` exception.</span>
+<span class="sd">    Otherwise it raises an :exc:`~websockets.exceptions.InvalidURI` exception.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">uri</span> <span class="o">=</span> <span class="n">urllib</span><span class="o">.</span><span class="n">parse</span><span class="o">.</span><span class="n">urlparse</span><span class="p">(</span><span class="n">uri</span><span class="p">)</span>
     <span class="k">try</span><span class="p">:</span>
@@ -98,9 +104,9 @@
           </div>
         </div>
       </div>
-      <div class="sphinxsidebar">
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
         <div class="sphinxsidebarwrapper">
-<div id="searchbox" style="display: none">
+<div id="searchbox" style="display: none" role="search">
   <h3>Quick search</h3>
     <form class="search" action="../../search.html" method="get">
       <input type="text" name="q" />
@@ -117,7 +123,7 @@
       </div>
       <div class="clearer"></div>
     </div>
-    <div class="related">
+    <div class="related" role="navigation" aria-label="related navigation">
       <h3>Navigation</h3>
       <ul>
         <li class="right" style="margin-right: 10px">
@@ -126,13 +132,13 @@
         <li class="right" >
           <a href="../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li><a href="../../index.html">websockets 2.4 documentation</a> &raquo;</li>
-          <li><a href="../index.html" >Module code</a> &raquo;</li> 
+        <li class="nav-item nav-item-0"><a href="../../index.html">websockets 2.5 documentation</a> &raquo;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" >Module code</a> &raquo;</li> 
       </ul>
     </div>
-    <div class="footer">
+    <div class="footer" role="contentinfo">
         &copy; Copyright 2013-2015, Aymeric Augustin.
-      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.3.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.3.1.
     </div>
   </body>
 </html>

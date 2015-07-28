@@ -6,7 +6,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>websockets.handshake &mdash; websockets 2.4 documentation</title>
+    <title>websockets.handshake &mdash; websockets 2.5 documentation</title>
     
     <link rel="stylesheet" href="../../_static/pydoctheme.css" type="text/css" />
     <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
@@ -14,7 +14,7 @@
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    '../../',
-        VERSION:     '2.4',
+        VERSION:     '2.5',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -23,11 +23,11 @@
     <script type="text/javascript" src="../../_static/jquery.js"></script>
     <script type="text/javascript" src="../../_static/underscore.js"></script>
     <script type="text/javascript" src="../../_static/doctools.js"></script>
-    <link rel="top" title="websockets 2.4 documentation" href="../../index.html" />
+    <link rel="top" title="websockets 2.5 documentation" href="../../index.html" />
     <link rel="up" title="Module code" href="../index.html" /> 
   </head>
-  <body>
-    <div class="related">
+  <body role="document">
+    <div class="related" role="navigation" aria-label="related navigation">
       <h3>Navigation</h3>
       <ul>
         <li class="right" style="margin-right: 10px">
@@ -36,15 +36,15 @@
         <li class="right" >
           <a href="../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li><a href="../../index.html">websockets 2.4 documentation</a> &raquo;</li>
-          <li><a href="../index.html" accesskey="U">Module code</a> &raquo;</li> 
+        <li class="nav-item nav-item-0"><a href="../../index.html">websockets 2.5 documentation</a> &raquo;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" accesskey="U">Module code</a> &raquo;</li> 
       </ul>
     </div>  
 
     <div class="document">
       <div class="documentwrapper">
         <div class="bodywrapper">
-          <div class="body">
+          <div class="body" role="main">
             
   <h1>Source code for websockets.handshake</h1><div class="highlight"><pre>
 <span class="sd">&quot;&quot;&quot;</span>
@@ -56,11 +56,11 @@
 <span class="sd">It provides functions to implement the handshake with any existing HTTP</span>
 <span class="sd">library. You must pass to these functions:</span>
 
-<span class="sd">- A `set_header` function accepting a header name and a header value,</span>
-<span class="sd">- A `get_header` function accepting a header name and returning the header</span>
+<span class="sd">- A ``set_header`` function accepting a header name and a header value,</span>
+<span class="sd">- A ``get_header`` function accepting a header name and returning the header</span>
 <span class="sd">  value.</span>
 
-<span class="sd">The inputs and outputs of `get_header` and `set_header` are :class:`str`</span>
+<span class="sd">The inputs and outputs of ``get_header`` and ``set_header`` are :class:`str`</span>
 <span class="sd">objects containing only ASCII characters.</span>
 
 <span class="sd">Some checks cannot be performed because they depend too much on the</span>
@@ -71,7 +71,8 @@
 <span class="sd">- Read the request, check that the method is GET, and check the headers with</span>
 <span class="sd">  :func:`check_request`,</span>
 <span class="sd">- Send a 101 response to the client with the headers created by</span>
-<span class="sd">  :func:`build_response` if the request is valid; otherwise, send a 400.</span>
+<span class="sd">  :func:`build_response` if the request is valid; otherwise, send an</span>
+<span class="sd">  appropriate HTTP error code.</span>
 
 <span class="sd">To open a connection, a client must:</span>
 
@@ -100,7 +101,7 @@
     <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Build a handshake request to send to the server.</span>
 
-<span class="sd">    Return the `key` which must be passed to :func:`check_response`.</span>
+<span class="sd">    Return the ``key`` which must be passed to :func:`check_response`.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">rand</span> <span class="o">=</span> <span class="nb">bytes</span><span class="p">(</span><span class="n">random</span><span class="o">.</span><span class="n">getrandbits</span><span class="p">(</span><span class="mi">8</span><span class="p">)</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">16</span><span class="p">))</span>
     <span class="n">key</span> <span class="o">=</span> <span class="n">base64</span><span class="o">.</span><span class="n">b64encode</span><span class="p">(</span><span class="n">rand</span><span class="p">)</span><span class="o">.</span><span class="n">decode</span><span class="p">()</span>
@@ -115,11 +116,11 @@
     <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Check a handshake request received from the client.</span>
 
-<span class="sd">    If the handshake is valid, this function returns the `key` which must be</span>
+<span class="sd">    If the handshake is valid, this function returns the ``key`` which must be</span>
 <span class="sd">    passed to :func:`build_response`.</span>
 
-<span class="sd">    Otherwise, it raises an :exc:`InvalidHandshake` exception and the server</span>
-<span class="sd">    must return an error, usually 400 Bad Request.</span>
+<span class="sd">    Otherwise it raises an :exc:`~websockets.exceptions.InvalidHandshake`</span>
+<span class="sd">    exception and the server must return an error like 400 Bad Request.</span>
 
 <span class="sd">    This function doesn&#39;t verify that the request is an HTTP/1.1 or higher GET</span>
 <span class="sd">    request and doesn&#39;t perform Host and Origin checks. These controls are</span>
@@ -128,21 +129,23 @@
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">try</span><span class="p">:</span>
         <span class="k">assert</span> <span class="n">get_header</span><span class="p">(</span><span class="s">&#39;Upgrade&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">==</span> <span class="s">&#39;websocket&#39;</span>
-        <span class="k">assert</span> <span class="nb">any</span><span class="p">(</span><span class="n">token</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span> <span class="o">==</span> <span class="s">&#39;upgrade&#39;</span>
-                <span class="k">for</span> <span class="n">token</span> <span class="ow">in</span> <span class="n">get_header</span><span class="p">(</span><span class="s">&#39;Connection&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s">&#39;,&#39;</span><span class="p">))</span>
+        <span class="k">assert</span> <span class="nb">any</span><span class="p">(</span>
+            <span class="n">token</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span> <span class="o">==</span> <span class="s">&#39;upgrade&#39;</span>
+            <span class="k">for</span> <span class="n">token</span> <span class="ow">in</span> <span class="n">get_header</span><span class="p">(</span><span class="s">&#39;Connection&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s">&#39;,&#39;</span><span class="p">))</span>
         <span class="n">key</span> <span class="o">=</span> <span class="n">get_header</span><span class="p">(</span><span class="s">&#39;Sec-WebSocket-Key&#39;</span><span class="p">)</span>
-        <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">base64</span><span class="o">.</span><span class="n">b64decode</span><span class="p">(</span><span class="n">key</span><span class="o">.</span><span class="n">encode</span><span class="p">()))</span> <span class="o">==</span> <span class="mi">16</span>
+        <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">base64</span><span class="o">.</span><span class="n">b64decode</span><span class="p">(</span><span class="n">key</span><span class="o">.</span><span class="n">encode</span><span class="p">(),</span> <span class="n">validate</span><span class="o">=</span><span class="bp">True</span><span class="p">))</span> <span class="o">==</span> <span class="mi">16</span>
         <span class="k">assert</span> <span class="n">get_header</span><span class="p">(</span><span class="s">&#39;Sec-WebSocket-Version&#39;</span><span class="p">)</span> <span class="o">==</span> <span class="s">&#39;13&#39;</span>
-        <span class="k">return</span> <span class="n">key</span>
-    <span class="k">except</span> <span class="p">(</span><span class="ne">AssertionError</span><span class="p">,</span> <span class="ne">KeyError</span><span class="p">)</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
         <span class="k">raise</span> <span class="n">InvalidHandshake</span><span class="p">(</span><span class="s">&quot;Invalid request&quot;</span><span class="p">)</span> <span class="kn">from</span> <span class="nn">exc</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">key</span>
 
 </div>
 <div class="viewcode-block" id="build_response"><a class="viewcode-back" href="../../index.html#websockets.handshake.build_response">[docs]</a><span class="k">def</span> <span class="nf">build_response</span><span class="p">(</span><span class="n">set_header</span><span class="p">,</span> <span class="n">key</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Build a handshake response to send to the client.</span>
 
-<span class="sd">    `key` comes from :func:`check_request`.</span>
+<span class="sd">    ``key`` comes from :func:`check_request`.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">set_header</span><span class="p">(</span><span class="s">&#39;Upgrade&#39;</span><span class="p">,</span> <span class="s">&#39;WebSocket&#39;</span><span class="p">)</span>
     <span class="n">set_header</span><span class="p">(</span><span class="s">&#39;Connection&#39;</span><span class="p">,</span> <span class="s">&#39;Upgrade&#39;</span><span class="p">)</span>
@@ -153,11 +156,12 @@
     <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Check a handshake response received from the server.</span>
 
-<span class="sd">    `key` comes from :func:`build_request`.</span>
+<span class="sd">    ``key`` comes from :func:`build_request`.</span>
 
 <span class="sd">    If the handshake is valid, this function returns ``None``.</span>
 
-<span class="sd">    Otherwise, it raises an :exc:`InvalidHandshake` exception.</span>
+<span class="sd">    Otherwise it raises an :exc:`~websockets.exceptions.InvalidHandshake`</span>
+<span class="sd">    exception.</span>
 
 <span class="sd">    This function doesn&#39;t verify that the response is an HTTP/1.1 or higher</span>
 <span class="sd">    response with a 101 status code. These controls are the responsibility of</span>
@@ -165,10 +169,11 @@
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">try</span><span class="p">:</span>
         <span class="k">assert</span> <span class="n">get_header</span><span class="p">(</span><span class="s">&#39;Upgrade&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">==</span> <span class="s">&#39;websocket&#39;</span>
-        <span class="k">assert</span> <span class="nb">any</span><span class="p">(</span><span class="n">token</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span> <span class="o">==</span> <span class="s">&#39;upgrade&#39;</span>
-                <span class="k">for</span> <span class="n">token</span> <span class="ow">in</span> <span class="n">get_header</span><span class="p">(</span><span class="s">&#39;Connection&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s">&#39;,&#39;</span><span class="p">))</span>
+        <span class="k">assert</span> <span class="nb">any</span><span class="p">(</span>
+            <span class="n">token</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span> <span class="o">==</span> <span class="s">&#39;upgrade&#39;</span>
+            <span class="k">for</span> <span class="n">token</span> <span class="ow">in</span> <span class="n">get_header</span><span class="p">(</span><span class="s">&#39;Connection&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s">&#39;,&#39;</span><span class="p">))</span>
         <span class="k">assert</span> <span class="n">get_header</span><span class="p">(</span><span class="s">&#39;Sec-WebSocket-Accept&#39;</span><span class="p">)</span> <span class="o">==</span> <span class="n">accept</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
-    <span class="k">except</span> <span class="p">(</span><span class="ne">AssertionError</span><span class="p">,</span> <span class="ne">KeyError</span><span class="p">)</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
         <span class="k">raise</span> <span class="n">InvalidHandshake</span><span class="p">(</span><span class="s">&quot;Invalid response&quot;</span><span class="p">)</span> <span class="kn">from</span> <span class="nn">exc</span>
 
 </div>
@@ -180,9 +185,9 @@
           </div>
         </div>
       </div>
-      <div class="sphinxsidebar">
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
         <div class="sphinxsidebarwrapper">
-<div id="searchbox" style="display: none">
+<div id="searchbox" style="display: none" role="search">
   <h3>Quick search</h3>
     <form class="search" action="../../search.html" method="get">
       <input type="text" name="q" />
@@ -199,7 +204,7 @@
       </div>
       <div class="clearer"></div>
     </div>
-    <div class="related">
+    <div class="related" role="navigation" aria-label="related navigation">
       <h3>Navigation</h3>
       <ul>
         <li class="right" style="margin-right: 10px">
@@ -208,13 +213,13 @@
         <li class="right" >
           <a href="../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li><a href="../../index.html">websockets 2.4 documentation</a> &raquo;</li>
-          <li><a href="../index.html" >Module code</a> &raquo;</li> 
+        <li class="nav-item nav-item-0"><a href="../../index.html">websockets 2.5 documentation</a> &raquo;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" >Module code</a> &raquo;</li> 
       </ul>
     </div>
-    <div class="footer">
+    <div class="footer" role="contentinfo">
         &copy; Copyright 2013-2015, Aymeric Augustin.
-      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.3.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.3.1.
     </div>
   </body>
 </html>

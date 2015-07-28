@@ -6,7 +6,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>websockets.protocol &mdash; websockets 2.4 documentation</title>
+    <title>websockets.protocol &mdash; websockets 2.5 documentation</title>
     
     <link rel="stylesheet" href="../../_static/pydoctheme.css" type="text/css" />
     <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
@@ -14,7 +14,7 @@
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    '../../',
-        VERSION:     '2.4',
+        VERSION:     '2.5',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -23,11 +23,11 @@
     <script type="text/javascript" src="../../_static/jquery.js"></script>
     <script type="text/javascript" src="../../_static/underscore.js"></script>
     <script type="text/javascript" src="../../_static/doctools.js"></script>
-    <link rel="top" title="websockets 2.4 documentation" href="../../index.html" />
+    <link rel="top" title="websockets 2.5 documentation" href="../../index.html" />
     <link rel="up" title="Module code" href="../index.html" /> 
   </head>
-  <body>
-    <div class="related">
+  <body role="document">
+    <div class="related" role="navigation" aria-label="related navigation">
       <h3>Navigation</h3>
       <ul>
         <li class="right" style="margin-right: 10px">
@@ -36,15 +36,15 @@
         <li class="right" >
           <a href="../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li><a href="../../index.html">websockets 2.4 documentation</a> &raquo;</li>
-          <li><a href="../index.html" accesskey="U">Module code</a> &raquo;</li> 
+        <li class="nav-item nav-item-0"><a href="../../index.html">websockets 2.5 documentation</a> &raquo;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" accesskey="U">Module code</a> &raquo;</li> 
       </ul>
     </div>  
 
     <div class="document">
       <div class="documentwrapper">
         <div class="bodywrapper">
-          <div class="body">
+          <div class="body" role="main">
             
   <h1>Source code for websockets.protocol</h1><div class="highlight"><pre>
 <span class="sd">&quot;&quot;&quot;</span>
@@ -56,14 +56,13 @@
 
 <span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span><span class="s">&#39;WebSocketCommonProtocol&#39;</span><span class="p">]</span>
 
+<span class="kn">import</span> <span class="nn">asyncio</span>
+<span class="kn">import</span> <span class="nn">asyncio.queues</span>
 <span class="kn">import</span> <span class="nn">codecs</span>
 <span class="kn">import</span> <span class="nn">collections</span>
 <span class="kn">import</span> <span class="nn">logging</span>
 <span class="kn">import</span> <span class="nn">random</span>
 <span class="kn">import</span> <span class="nn">struct</span>
-
-<span class="kn">import</span> <span class="nn">asyncio</span>
-<span class="kn">from</span> <span class="nn">asyncio.queues</span> <span class="kn">import</span> <span class="n">Queue</span><span class="p">,</span> <span class="n">QueueEmpty</span>
 
 <span class="kn">from</span> <span class="nn">.exceptions</span> <span class="kn">import</span> <span class="n">InvalidState</span><span class="p">,</span> <span class="n">PayloadTooBig</span><span class="p">,</span> <span class="n">WebSocketProtocolError</span>
 <span class="kn">from</span> <span class="nn">.framing</span> <span class="kn">import</span> <span class="o">*</span>
@@ -71,6 +70,15 @@
 
 
 <span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="n">__name__</span><span class="p">)</span>
+
+
+<span class="c"># A WebSocket connection goes through the following four states, in order:</span>
+
+<span class="n">CONNECTING</span><span class="p">,</span> <span class="n">OPEN</span><span class="p">,</span> <span class="n">CLOSING</span><span class="p">,</span> <span class="n">CLOSED</span> <span class="o">=</span> <span class="nb">range</span><span class="p">(</span><span class="mi">4</span><span class="p">)</span>
+
+<span class="c"># In order to ensure consistency, the code always checks the current value of</span>
+<span class="c"># WebSocketCommonProtocol.state before assigning a new value and never yields</span>
+<span class="c"># between the check and the assignment.</span>
 
 
 <div class="viewcode-block" id="WebSocketCommonProtocol"><a class="viewcode-back" href="../../index.html#websockets.protocol.WebSocketCommonProtocol">[docs]</a><span class="k">class</span> <span class="nc">WebSocketCommonProtocol</span><span class="p">(</span><span class="n">asyncio</span><span class="o">.</span><span class="n">StreamReaderProtocol</span><span class="p">):</span>
@@ -86,21 +94,29 @@
 <span class="sd">    control frames automatically. It sends outgoing data frames and performs</span>
 <span class="sd">    the closing handshake.</span>
 
-<span class="sd">    The `host`, `port` and `secure` parameters are simply stored as attributes</span>
-<span class="sd">    for handlers that need them.</span>
+<span class="sd">    The ``host``, ``port`` and ``secure`` parameters are simply stored as</span>
+<span class="sd">    attributes for handlers that need them.</span>
 
-<span class="sd">    The `timeout` parameter defines the maximum wait time in seconds for</span>
+<span class="sd">    The ``timeout`` parameter defines the maximum wait time in seconds for</span>
 <span class="sd">    completing the closing handshake and, only on the client side, for</span>
 <span class="sd">    terminating the TCP connection. :meth:`close()` will complete in at most</span>
 <span class="sd">    this time on the server side and twice this time on the client side.</span>
 
-<span class="sd">    The `max_size` parameter enforces the maximum size for incoming messages</span>
+<span class="sd">    The ``max_size`` parameter enforces the maximum size for incoming messages</span>
 <span class="sd">    in bytes. The default value is 1MB. ``None`` disables the limit. If a</span>
 <span class="sd">    message larger than the maximum size is received, :meth:`recv()` will</span>
 <span class="sd">    return ``None`` and the connection will be closed with status code 1009.</span>
 
-<span class="sd">    Once the handshake is complete, if a subprotocol was negotiated, it&#39;s</span>
-<span class="sd">    available in the :attr:`subprotocol` attribute.</span>
+<span class="sd">    Once the handshake is complete, request and response HTTP headers are</span>
+<span class="sd">    available:</span>
+
+<span class="sd">    * as a MIME :class:`~email.message.Message` in the :attr:`request_headers`</span>
+<span class="sd">      and :attr:`response_headers` attributes</span>
+<span class="sd">    * as an iterable of (name, value) pairs in the :attr:`raw_request_headers`</span>
+<span class="sd">      and :attr:`raw_response_headers` attributes</span>
+
+<span class="sd">    If a subprotocol was negotiated, it&#39;s available in the :attr:`subprotocol`</span>
+<span class="sd">    attribute.</span>
 
 <span class="sd">    Once the connection is closed, the status code is available in the</span>
 <span class="sd">    :attr:`close_code` attribute and the reason in :attr:`close_reason`.</span>
@@ -112,83 +128,97 @@
     <span class="c"># To get the client-side behavior, set is_client = True.</span>
 
     <span class="n">is_client</span> <span class="o">=</span> <span class="bp">False</span>
-    <span class="n">state</span> <span class="o">=</span> <span class="s">&#39;OPEN&#39;</span>
+    <span class="n">state</span> <span class="o">=</span> <span class="n">OPEN</span>
 
     <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span>
-                 <span class="n">host</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">port</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">secure</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">max_size</span><span class="o">=</span><span class="mi">2</span> <span class="o">**</span> <span class="mi">20</span><span class="p">,</span> <span class="n">loop</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+                 <span class="n">host</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">port</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">secure</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span>
+                 <span class="n">timeout</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">max_size</span><span class="o">=</span><span class="mi">2</span> <span class="o">**</span> <span class="mi">20</span><span class="p">,</span> <span class="n">loop</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">host</span> <span class="o">=</span> <span class="n">host</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">port</span> <span class="o">=</span> <span class="n">port</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">secure</span> <span class="o">=</span> <span class="n">secure</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">timeout</span> <span class="o">=</span> <span class="n">timeout</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">max_size</span> <span class="o">=</span> <span class="n">max_size</span>
+        <span class="c"># Store a reference to loop to avoid relying on self.loop, a private</span>
+        <span class="c"># attribute of StreamReaderProtocol, inherited from FlowControlMixin.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">loop</span> <span class="o">=</span> <span class="n">loop</span>
 
         <span class="n">stream_reader</span> <span class="o">=</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">StreamReader</span><span class="p">(</span><span class="n">loop</span><span class="o">=</span><span class="n">loop</span><span class="p">)</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">__init__</span><span class="p">(</span><span class="n">stream_reader</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">client_connected</span><span class="p">,</span> <span class="n">loop</span><span class="p">)</span>
 
+        <span class="bp">self</span><span class="o">.</span><span class="n">request_headers</span> <span class="o">=</span> <span class="bp">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">raw_request_headers</span> <span class="o">=</span> <span class="bp">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">response_headers</span> <span class="o">=</span> <span class="bp">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">raw_response_headers</span> <span class="o">=</span> <span class="bp">None</span>
+
         <span class="bp">self</span><span class="o">.</span><span class="n">subprotocol</span> <span class="o">=</span> <span class="bp">None</span>
 
+        <span class="c"># Code and reason must be set when the closing handshake completes.</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">close_code</span> <span class="o">=</span> <span class="bp">None</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">close_reason</span> <span class="o">=</span> <span class="s">&#39;&#39;</span>
 
         <span class="c"># Futures tracking steps in the connection&#39;s lifecycle.</span>
+        <span class="c"># Set to True when the opening handshake has completed properly.</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">opening_handshake</span> <span class="o">=</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">Future</span><span class="p">(</span><span class="n">loop</span><span class="o">=</span><span class="n">loop</span><span class="p">)</span>
+        <span class="c"># Set to True when the closing handshake has completed properly and to</span>
+        <span class="c"># False when the connection terminates abnormally.</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">closing_handshake</span> <span class="o">=</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">Future</span><span class="p">(</span><span class="n">loop</span><span class="o">=</span><span class="n">loop</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">connection_failed</span> <span class="o">=</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">Future</span><span class="p">(</span><span class="n">loop</span><span class="o">=</span><span class="n">loop</span><span class="p">)</span>
+        <span class="c"># Set to None when the connection state becomes CLOSED.</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">connection_closed</span> <span class="o">=</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">Future</span><span class="p">(</span><span class="n">loop</span><span class="o">=</span><span class="n">loop</span><span class="p">)</span>
 
         <span class="c"># Queue of received messages.</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">messages</span> <span class="o">=</span> <span class="n">Queue</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">messages</span> <span class="o">=</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">queues</span><span class="o">.</span><span class="n">Queue</span><span class="p">(</span><span class="n">loop</span><span class="o">=</span><span class="n">loop</span><span class="p">)</span>
 
         <span class="c"># Mapping of ping IDs to waiters, in chronological order.</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">pings</span> <span class="o">=</span> <span class="n">collections</span><span class="o">.</span><span class="n">OrderedDict</span><span class="p">()</span>
 
-        <span class="c"># Task managing the connection.</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">worker</span> <span class="o">=</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">async</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">run</span><span class="p">(),</span> <span class="n">loop</span><span class="o">=</span><span class="n">loop</span><span class="p">)</span>
+        <span class="c"># Task managing the connection, initalized in self.client_connected.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">worker</span> <span class="o">=</span> <span class="bp">None</span>
 
         <span class="c"># In a subclass implementing the opening handshake, the state will be</span>
         <span class="c"># CONNECTING at this point.</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">state</span> <span class="o">==</span> <span class="s">&#39;OPEN&#39;</span><span class="p">:</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">state</span> <span class="o">==</span> <span class="n">OPEN</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">opening_handshake</span><span class="o">.</span><span class="n">set_result</span><span class="p">(</span><span class="bp">True</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">state_name</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="p">[</span><span class="s">&#39;CONNECTING&#39;</span><span class="p">,</span> <span class="s">&#39;OPEN&#39;</span><span class="p">,</span> <span class="s">&#39;CLOSING&#39;</span><span class="p">,</span> <span class="s">&#39;CLOSED&#39;</span><span class="p">][</span><span class="bp">self</span><span class="o">.</span><span class="n">state</span><span class="p">]</span>
 
     <span class="c"># Public API</span>
 
     <span class="nd">@property</span>
-<div class="viewcode-block" id="WebSocketCommonProtocol.open"><a class="viewcode-back" href="../../index.html#websockets.protocol.WebSocketCommonProtocol.open">[docs]</a>    <span class="k">def</span> <span class="nf">open</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">open</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        This property is ``True`` when the connection is usable.</span>
 
 <span class="sd">        It may be used to handle disconnections gracefully.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">state</span> <span class="o">==</span> <span class="s">&#39;OPEN&#39;</span>
-</div>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">state</span> <span class="o">==</span> <span class="n">OPEN</span>
+
     <span class="nd">@asyncio.coroutine</span>
 <div class="viewcode-block" id="WebSocketCommonProtocol.close"><a class="viewcode-back" href="../../index.html#websockets.protocol.WebSocketCommonProtocol.close">[docs]</a>    <span class="k">def</span> <span class="nf">close</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">code</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span> <span class="n">reason</span><span class="o">=</span><span class="s">&#39;&#39;</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        This coroutine performs the closing handshake.</span>
 
-<span class="sd">        This is the expected way to terminate a connection on the server side.</span>
-
 <span class="sd">        It waits for the other end to complete the handshake. It doesn&#39;t do</span>
 <span class="sd">        anything once the connection is closed.</span>
 
-<span class="sd">        It&#39;s usually safe to wrap this coroutine in `asyncio.async()` since</span>
-<span class="sd">        errors during connection termination aren&#39;t particularly useful.</span>
+<span class="sd">        It&#39;s usually safe to wrap this coroutine in :func:`~asyncio.async`</span>
+<span class="sd">        since errors during connection termination aren&#39;t particularly useful.</span>
 
-<span class="sd">        The `code` must be an :class:`int` and the `reason` a :class:`str`.</span>
+<span class="sd">        ``code`` must be an :class:`int` and ``reason`` a :class:`str`.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">state</span> <span class="o">==</span> <span class="s">&#39;OPEN&#39;</span><span class="p">:</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">state</span> <span class="o">==</span> <span class="n">OPEN</span><span class="p">:</span>
             <span class="c"># 7.1.2. Start the WebSocket Closing Handshake</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">close_code</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">close_reason</span> <span class="o">=</span> <span class="n">code</span><span class="p">,</span> <span class="n">reason</span>
-            <span class="k">yield from</span> <span class="bp">self</span><span class="o">.</span><span class="n">write_frame</span><span class="p">(</span><span class="n">OP_CLOSE</span><span class="p">,</span> <span class="n">serialize_close</span><span class="p">(</span><span class="n">code</span><span class="p">,</span> <span class="n">reason</span><span class="p">))</span>
             <span class="c"># 7.1.3. The WebSocket Closing Handshake is Started</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">state</span> <span class="o">=</span> <span class="s">&#39;CLOSING&#39;</span>
+            <span class="n">frame_data</span> <span class="o">=</span> <span class="n">serialize_close</span><span class="p">(</span><span class="n">code</span><span class="p">,</span> <span class="n">reason</span><span class="p">)</span>
+            <span class="k">yield from</span> <span class="bp">self</span><span class="o">.</span><span class="n">write_frame</span><span class="p">(</span><span class="n">OP_CLOSE</span><span class="p">,</span> <span class="n">frame_data</span><span class="p">)</span>
 
         <span class="c"># If the connection doesn&#39;t terminate within the timeout, break out of</span>
         <span class="c"># the worker loop.</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="k">yield from</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">wait_for</span><span class="p">(</span>
-                    <span class="bp">self</span><span class="o">.</span><span class="n">worker</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">timeout</span><span class="p">,</span> <span class="n">loop</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_loop</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">worker</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">timeout</span><span class="p">,</span> <span class="n">loop</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">loop</span><span class="p">)</span>
         <span class="k">except</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">TimeoutError</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">worker</span><span class="o">.</span><span class="n">cancel</span><span class="p">()</span>
 
@@ -210,14 +240,20 @@
         <span class="c"># Return any available message</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">messages</span><span class="o">.</span><span class="n">get_nowait</span><span class="p">()</span>
-        <span class="k">except</span> <span class="n">QueueEmpty</span><span class="p">:</span>
+        <span class="k">except</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">queues</span><span class="o">.</span><span class="n">QueueEmpty</span><span class="p">:</span>
             <span class="k">pass</span>
 
         <span class="c"># Wait for a message until the connection is closed</span>
-        <span class="n">next_message</span> <span class="o">=</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">async</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">messages</span><span class="o">.</span><span class="n">get</span><span class="p">(),</span> <span class="n">loop</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_loop</span><span class="p">)</span>
-        <span class="n">done</span><span class="p">,</span> <span class="n">pending</span> <span class="o">=</span> <span class="k">yield from</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">wait</span><span class="p">(</span>
+        <span class="n">next_message</span> <span class="o">=</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">async</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">messages</span><span class="o">.</span><span class="n">get</span><span class="p">(),</span> <span class="n">loop</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">loop</span><span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">done</span><span class="p">,</span> <span class="n">pending</span> <span class="o">=</span> <span class="k">yield from</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">wait</span><span class="p">(</span>
                 <span class="p">[</span><span class="n">next_message</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">worker</span><span class="p">],</span>
-                <span class="n">loop</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_loop</span><span class="p">,</span> <span class="n">return_when</span><span class="o">=</span><span class="n">asyncio</span><span class="o">.</span><span class="n">FIRST_COMPLETED</span><span class="p">)</span>
+                <span class="n">loop</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">loop</span><span class="p">,</span> <span class="n">return_when</span><span class="o">=</span><span class="n">asyncio</span><span class="o">.</span><span class="n">FIRST_COMPLETED</span><span class="p">)</span>
+        <span class="k">except</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">CancelledError</span><span class="p">:</span>
+            <span class="c"># Handle the Task.cancel()</span>
+            <span class="n">next_message</span><span class="o">.</span><span class="n">cancel</span><span class="p">()</span>
+            <span class="k">raise</span>
+
         <span class="k">if</span> <span class="n">next_message</span> <span class="ow">in</span> <span class="n">done</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">next_message</span><span class="o">.</span><span class="n">result</span><span class="p">()</span>
         <span class="k">else</span><span class="p">:</span>
@@ -232,7 +268,8 @@
 <span class="sd">        frame.</span>
 
 <span class="sd">        It raises a :exc:`TypeError` for other inputs and</span>
-<span class="sd">        :exc:`InvalidState` once the connection is closed.</span>
+<span class="sd">        :exc:`~websockets.exceptions.InvalidState` once the connection is</span>
+<span class="sd">        closed.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
             <span class="n">opcode</span> <span class="o">=</span> <span class="mi">1</span>
@@ -248,8 +285,9 @@
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        This coroutine sends a ping.</span>
 
-<span class="sd">        It returns a Future which will be completed when the corresponding</span>
-<span class="sd">        pong is received and which you may ignore if you don&#39;t want to wait.</span>
+<span class="sd">        It returns a :class:`~asyncio.Future` which will be completed when the</span>
+<span class="sd">        corresponding pong is received and which you may ignore if you don&#39;t</span>
+<span class="sd">        want to wait.</span>
 
 <span class="sd">        A ping may serve as a keepalive.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
@@ -260,7 +298,7 @@
         <span class="k">while</span> <span class="n">data</span> <span class="ow">is</span> <span class="bp">None</span> <span class="ow">or</span> <span class="n">data</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">pings</span><span class="p">:</span>
             <span class="n">data</span> <span class="o">=</span> <span class="n">struct</span><span class="o">.</span><span class="n">pack</span><span class="p">(</span><span class="s">&#39;!I&#39;</span><span class="p">,</span> <span class="n">random</span><span class="o">.</span><span class="n">getrandbits</span><span class="p">(</span><span class="mi">32</span><span class="p">))</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">pings</span><span class="p">[</span><span class="n">data</span><span class="p">]</span> <span class="o">=</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">Future</span><span class="p">(</span><span class="n">loop</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_loop</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">pings</span><span class="p">[</span><span class="n">data</span><span class="p">]</span> <span class="o">=</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">Future</span><span class="p">(</span><span class="n">loop</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">loop</span><span class="p">)</span>
         <span class="k">yield from</span> <span class="bp">self</span><span class="o">.</span><span class="n">write_frame</span><span class="p">(</span><span class="n">OP_PING</span><span class="p">,</span> <span class="n">data</span><span class="p">)</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">pings</span><span class="p">[</span><span class="n">data</span><span class="p">]</span>
 </div>
@@ -361,12 +399,13 @@
             <span class="n">frame</span> <span class="o">=</span> <span class="k">yield from</span> <span class="bp">self</span><span class="o">.</span><span class="n">read_frame</span><span class="p">(</span><span class="n">max_size</span><span class="p">)</span>
             <span class="c"># 5.5. Control Frames</span>
             <span class="k">if</span> <span class="n">frame</span><span class="o">.</span><span class="n">opcode</span> <span class="o">==</span> <span class="n">OP_CLOSE</span><span class="p">:</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">close_code</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">close_reason</span> <span class="o">=</span> <span class="n">parse_close</span><span class="p">(</span><span class="n">frame</span><span class="o">.</span><span class="n">data</span><span class="p">)</span>
-                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">state</span> <span class="o">!=</span> <span class="s">&#39;CLOSING&#39;</span><span class="p">:</span>
+                <span class="c"># Make sure the close frame is valid before echoing it.</span>
+                <span class="n">code</span><span class="p">,</span> <span class="n">reason</span> <span class="o">=</span> <span class="n">parse_close</span><span class="p">(</span><span class="n">frame</span><span class="o">.</span><span class="n">data</span><span class="p">)</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">state</span> <span class="o">==</span> <span class="n">OPEN</span><span class="p">:</span>
                     <span class="c"># 7.1.3. The WebSocket Closing Handshake is Started</span>
-                    <span class="bp">self</span><span class="o">.</span><span class="n">state</span> <span class="o">=</span> <span class="s">&#39;CLOSING&#39;</span>
-                    <span class="k">yield from</span> <span class="bp">self</span><span class="o">.</span><span class="n">write_frame</span><span class="p">(</span><span class="n">OP_CLOSE</span><span class="p">,</span> <span class="n">frame</span><span class="o">.</span><span class="n">data</span><span class="p">,</span> <span class="s">&#39;CLOSING&#39;</span><span class="p">)</span>
+                    <span class="k">yield from</span> <span class="bp">self</span><span class="o">.</span><span class="n">write_frame</span><span class="p">(</span><span class="n">OP_CLOSE</span><span class="p">,</span> <span class="n">frame</span><span class="o">.</span><span class="n">data</span><span class="p">)</span>
                 <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">closing_handshake</span><span class="o">.</span><span class="n">done</span><span class="p">():</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">close_code</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">close_reason</span> <span class="o">=</span> <span class="n">code</span><span class="p">,</span> <span class="n">reason</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">closing_handshake</span><span class="o">.</span><span class="n">set_result</span><span class="p">(</span><span class="bp">True</span><span class="p">)</span>
                 <span class="k">return</span>
             <span class="k">elif</span> <span class="n">frame</span><span class="o">.</span><span class="n">opcode</span> <span class="o">==</span> <span class="n">OP_PING</span><span class="p">:</span>
@@ -388,17 +427,22 @@
     <span class="nd">@asyncio.coroutine</span>
     <span class="k">def</span> <span class="nf">read_frame</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">max_size</span><span class="p">):</span>
         <span class="n">is_masked</span> <span class="o">=</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_client</span>
-        <span class="n">frame</span> <span class="o">=</span> <span class="k">yield from</span> <span class="n">read_frame</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">reader</span><span class="o">.</span><span class="n">readexactly</span><span class="p">,</span> <span class="n">is_masked</span><span class="p">,</span> <span class="n">max_size</span><span class="o">=</span><span class="n">max_size</span><span class="p">)</span>
+        <span class="n">frame</span> <span class="o">=</span> <span class="k">yield from</span> <span class="n">read_frame</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">reader</span><span class="o">.</span><span class="n">readexactly</span><span class="p">,</span> <span class="n">is_masked</span><span class="p">,</span> <span class="n">max_size</span><span class="o">=</span><span class="n">max_size</span><span class="p">)</span>
         <span class="n">side</span> <span class="o">=</span> <span class="s">&#39;client&#39;</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_client</span> <span class="k">else</span> <span class="s">&#39;server&#39;</span>
         <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s">&quot;</span><span class="si">%s</span><span class="s"> &lt;&lt; </span><span class="si">%s</span><span class="s">&quot;</span><span class="p">,</span> <span class="n">side</span><span class="p">,</span> <span class="n">frame</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">frame</span>
 
     <span class="nd">@asyncio.coroutine</span>
-    <span class="k">def</span> <span class="nf">write_frame</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">opcode</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="n">b</span><span class="s">&#39;&#39;</span><span class="p">,</span> <span class="n">expected_state</span><span class="o">=</span><span class="s">&#39;OPEN&#39;</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">write_frame</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">opcode</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="n">b</span><span class="s">&#39;&#39;</span><span class="p">):</span>
         <span class="c"># This may happen if a user attempts to write on a closed connection.</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">state</span> <span class="o">!=</span> <span class="n">expected_state</span><span class="p">:</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">state</span> <span class="o">!=</span> <span class="n">OPEN</span><span class="p">:</span>
             <span class="k">raise</span> <span class="n">InvalidState</span><span class="p">(</span><span class="s">&quot;Cannot write to a WebSocket &quot;</span>
-                               <span class="s">&quot;in the {} state&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">state</span><span class="p">))</span>
+                               <span class="s">&quot;in the {} state&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">state_name</span><span class="p">))</span>
+        <span class="c"># Make sure no other frame will be sent after a close frame. Do this</span>
+        <span class="c"># before yielding control to avoid sending more than one close frame.</span>
+        <span class="k">if</span> <span class="n">opcode</span> <span class="o">==</span> <span class="n">OP_CLOSE</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">state</span> <span class="o">=</span> <span class="n">CLOSING</span>
         <span class="n">frame</span> <span class="o">=</span> <span class="n">Frame</span><span class="p">(</span><span class="bp">True</span><span class="p">,</span> <span class="n">opcode</span><span class="p">,</span> <span class="n">data</span><span class="p">)</span>
         <span class="n">side</span> <span class="o">=</span> <span class="s">&#39;client&#39;</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_client</span> <span class="k">else</span> <span class="s">&#39;server&#39;</span>
         <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s">&quot;</span><span class="si">%s</span><span class="s"> &gt;&gt; </span><span class="si">%s</span><span class="s">&quot;</span><span class="p">,</span> <span class="n">side</span><span class="p">,</span> <span class="n">frame</span><span class="p">)</span>
@@ -408,70 +452,60 @@
             <span class="c"># Handle flow control automatically.</span>
             <span class="k">yield from</span> <span class="bp">self</span><span class="o">.</span><span class="n">writer</span><span class="o">.</span><span class="n">drain</span><span class="p">()</span>
         <span class="k">except</span> <span class="n">ConnectionResetError</span><span class="p">:</span>
-            <span class="c"># Terminate the connection if the socket died,</span>
-            <span class="c"># unless it&#39;s already being closed.</span>
-            <span class="k">if</span> <span class="n">expected_state</span> <span class="o">!=</span> <span class="s">&#39;CLOSING&#39;</span><span class="p">:</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">state</span> <span class="o">=</span> <span class="s">&#39;CLOSING&#39;</span>
-                <span class="k">yield from</span> <span class="bp">self</span><span class="o">.</span><span class="n">fail_connection</span><span class="p">(</span><span class="mi">1006</span><span class="p">)</span>
+            <span class="c"># Terminate the connection if the socket died.</span>
+            <span class="k">yield from</span> <span class="bp">self</span><span class="o">.</span><span class="n">fail_connection</span><span class="p">(</span><span class="mi">1006</span><span class="p">)</span>
 
     <span class="nd">@asyncio.coroutine</span>
-    <span class="k">def</span> <span class="nf">close_connection</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">close_connection</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">force</span><span class="o">=</span><span class="bp">False</span><span class="p">):</span>
         <span class="c"># 7.1.1. Close the WebSocket Connection</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">state</span> <span class="o">==</span> <span class="s">&#39;CLOSED&#39;</span><span class="p">:</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">state</span> <span class="o">==</span> <span class="n">CLOSED</span><span class="p">:</span>
             <span class="k">return</span>
 
         <span class="c"># Defensive assertion for protocol compliance.</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">state</span> <span class="o">!=</span> <span class="s">&#39;CLOSING&#39;</span><span class="p">:</span>                         <span class="c"># pragma: no cover</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">state</span> <span class="o">!=</span> <span class="n">CLOSING</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">force</span><span class="p">:</span>             <span class="c"># pragma: no cover</span>
             <span class="k">raise</span> <span class="n">InvalidState</span><span class="p">(</span><span class="s">&quot;Cannot close a WebSocket connection &quot;</span>
-                               <span class="s">&quot;in the {} state&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">state</span><span class="p">))</span>
+                               <span class="s">&quot;in the {} state&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">state_name</span><span class="p">))</span>
 
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_client</span><span class="p">:</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_client</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">force</span><span class="p">:</span>
             <span class="k">try</span><span class="p">:</span>
                 <span class="k">yield from</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">wait_for</span><span class="p">(</span>
-                        <span class="bp">self</span><span class="o">.</span><span class="n">connection_closed</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">timeout</span><span class="p">,</span> <span class="n">loop</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_loop</span><span class="p">)</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">connection_closed</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">timeout</span><span class="p">,</span> <span class="n">loop</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">loop</span><span class="p">)</span>
             <span class="k">except</span> <span class="p">(</span><span class="n">asyncio</span><span class="o">.</span><span class="n">CancelledError</span><span class="p">,</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">TimeoutError</span><span class="p">):</span>
                 <span class="k">pass</span>
 
-            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">state</span> <span class="o">==</span> <span class="s">&#39;CLOSED&#39;</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">state</span> <span class="o">==</span> <span class="n">CLOSED</span><span class="p">:</span>
                 <span class="k">return</span>
 
         <span class="c"># Attempt to terminate the TCP connection properly.</span>
-        <span class="c"># If the socket is already closed, this will crash.</span>
+        <span class="c"># If the socket is already closed, this may crash.</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">writer</span><span class="o">.</span><span class="n">can_write_eof</span><span class="p">():</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">writer</span><span class="o">.</span><span class="n">write_eof</span><span class="p">()</span>
-        <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+        <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>                                   <span class="c"># pragma: no cover</span>
             <span class="k">pass</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">writer</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
 
         <span class="k">try</span><span class="p">:</span>
             <span class="k">yield from</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">wait_for</span><span class="p">(</span>
-                    <span class="bp">self</span><span class="o">.</span><span class="n">connection_closed</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">timeout</span><span class="p">,</span> <span class="n">loop</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_loop</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">connection_closed</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">timeout</span><span class="p">,</span> <span class="n">loop</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">loop</span><span class="p">)</span>
         <span class="k">except</span> <span class="p">(</span><span class="n">asyncio</span><span class="o">.</span><span class="n">CancelledError</span><span class="p">,</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">TimeoutError</span><span class="p">):</span>
             <span class="k">pass</span>
 
     <span class="nd">@asyncio.coroutine</span>
     <span class="k">def</span> <span class="nf">fail_connection</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">code</span><span class="o">=</span><span class="mi">1011</span><span class="p">,</span> <span class="n">reason</span><span class="o">=</span><span class="s">&#39;&#39;</span><span class="p">):</span>
-        <span class="c"># Avoid calling fail_connection more than once to minimize</span>
-        <span class="c"># the consequences of race conditions between the two sides.</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection_failed</span><span class="o">.</span><span class="n">done</span><span class="p">():</span>
-            <span class="c"># Wait until the other coroutine calls connection_lost.</span>
-            <span class="k">yield from</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection_closed</span>
-            <span class="k">return</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">connection_failed</span><span class="o">.</span><span class="n">set_result</span><span class="p">(</span><span class="bp">None</span><span class="p">)</span>
-
-        <span class="c"># Losing the connection usually results in a protocol error.</span>
-        <span class="c"># Preserve the original error code in this case.</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">close_code</span> <span class="o">!=</span> <span class="mi">1006</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">close_code</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">close_reason</span> <span class="o">=</span> <span class="n">code</span><span class="p">,</span> <span class="n">reason</span>
         <span class="c"># 7.1.7. Fail the WebSocket Connection</span>
         <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s">&quot;Failing the WebSocket connection: </span><span class="si">%d</span><span class="s"> </span><span class="si">%s</span><span class="s">&quot;</span><span class="p">,</span> <span class="n">code</span><span class="p">,</span> <span class="n">reason</span><span class="p">)</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">state</span> <span class="o">==</span> <span class="s">&#39;OPEN&#39;</span><span class="p">:</span>
-            <span class="k">yield from</span> <span class="bp">self</span><span class="o">.</span><span class="n">write_frame</span><span class="p">(</span><span class="n">OP_CLOSE</span><span class="p">,</span> <span class="n">serialize_close</span><span class="p">(</span><span class="n">code</span><span class="p">,</span> <span class="n">reason</span><span class="p">))</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">state</span> <span class="o">=</span> <span class="s">&#39;CLOSING&#39;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">state</span> <span class="o">==</span> <span class="n">OPEN</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">code</span> <span class="o">==</span> <span class="mi">1006</span><span class="p">:</span>
+                <span class="c"># Don&#39;t send a close frame is the connection is broken. Set</span>
+                <span class="c"># the state to CLOSING to allow close_connection to proceed.</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">state</span> <span class="o">=</span> <span class="n">CLOSING</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">frame_data</span> <span class="o">=</span> <span class="n">serialize_close</span><span class="p">(</span><span class="n">code</span><span class="p">,</span> <span class="n">reason</span><span class="p">)</span>
+                <span class="k">yield from</span> <span class="bp">self</span><span class="o">.</span><span class="n">write_frame</span><span class="p">(</span><span class="n">OP_CLOSE</span><span class="p">,</span> <span class="n">frame_data</span><span class="p">)</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">closing_handshake</span><span class="o">.</span><span class="n">done</span><span class="p">():</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">close_code</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">close_reason</span> <span class="o">=</span> <span class="n">code</span><span class="p">,</span> <span class="n">reason</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">closing_handshake</span><span class="o">.</span><span class="n">set_result</span><span class="p">(</span><span class="bp">False</span><span class="p">)</span>
         <span class="k">yield from</span> <span class="bp">self</span><span class="o">.</span><span class="n">close_connection</span><span class="p">()</span>
 
@@ -480,23 +514,26 @@
     <span class="k">def</span> <span class="nf">client_connected</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">reader</span><span class="p">,</span> <span class="n">writer</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">reader</span> <span class="o">=</span> <span class="n">reader</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">writer</span> <span class="o">=</span> <span class="n">writer</span>
+        <span class="c"># Start the task that handles incoming messages.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">worker</span> <span class="o">=</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">async</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">run</span><span class="p">(),</span> <span class="n">loop</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">loop</span><span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">connection_lost</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">exc</span><span class="p">):</span>
         <span class="c"># 7.1.4. The WebSocket Connection is Closed</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">state</span> <span class="o">=</span> <span class="s">&#39;CLOSED&#39;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">state</span> <span class="o">=</span> <span class="n">CLOSED</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">closing_handshake</span><span class="o">.</span><span class="n">done</span><span class="p">():</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">close_code</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">close_reason</span> <span class="o">=</span> <span class="mi">1006</span><span class="p">,</span> <span class="s">&#39;&#39;</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">closing_handshake</span><span class="o">.</span><span class="n">set_result</span><span class="p">(</span><span class="bp">False</span><span class="p">)</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection_closed</span><span class="o">.</span><span class="n">done</span><span class="p">():</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">connection_closed</span><span class="o">.</span><span class="n">set_result</span><span class="p">(</span><span class="bp">None</span><span class="p">)</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">close_code</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">close_code</span> <span class="o">=</span> <span class="mi">1006</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">connection_lost</span><span class="p">(</span><span class="n">exc</span><span class="p">)</span></div>
 </pre></div>
 
           </div>
         </div>
       </div>
-      <div class="sphinxsidebar">
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
         <div class="sphinxsidebarwrapper">
-<div id="searchbox" style="display: none">
+<div id="searchbox" style="display: none" role="search">
   <h3>Quick search</h3>
     <form class="search" action="../../search.html" method="get">
       <input type="text" name="q" />
@@ -513,7 +550,7 @@
       </div>
       <div class="clearer"></div>
     </div>
-    <div class="related">
+    <div class="related" role="navigation" aria-label="related navigation">
       <h3>Navigation</h3>
       <ul>
         <li class="right" style="margin-right: 10px">
@@ -522,13 +559,13 @@
         <li class="right" >
           <a href="../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li><a href="../../index.html">websockets 2.4 documentation</a> &raquo;</li>
-          <li><a href="../index.html" >Module code</a> &raquo;</li> 
+        <li class="nav-item nav-item-0"><a href="../../index.html">websockets 2.5 documentation</a> &raquo;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" >Module code</a> &raquo;</li> 
       </ul>
     </div>
-    <div class="footer">
+    <div class="footer" role="contentinfo">
         &copy; Copyright 2013-2015, Aymeric Augustin.
-      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.3.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.3.1.
     </div>
   </body>
 </html>
