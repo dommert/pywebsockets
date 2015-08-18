@@ -7,7 +7,7 @@ WebSockets
 Python. It implements `RFC 6455`_ with a focus on correctness and simplicity.
 It passes the `Autobahn Testsuite`_.
 
-Built on top on Python's asynchronous I/O support introduced in `PEP 3156`_,
+Built on top of Python's asynchronous I/O support introduced in `PEP 3156`_,
 it provides an API based on coroutines, making it easy to write highly
 concurrent applications.
 
@@ -220,7 +220,7 @@ Server
 
    .. autofunction:: serve(ws_handler, host=None, port=None, *, loop=None, klass=WebSocketServerProtocol, origins=None, subprotocols=None, extra_headers=None, **kwds)
 
-   .. autoclass:: WebSocketServerProtocol(ws_handler, *, origins=None, subprotocols=None, extra_headers=None, host=None, port=None, secure=None, timeout=10, max_size=2 ** 20, loop=None)
+   .. autoclass:: WebSocketServerProtocol(ws_handler, ws_server, *, origins=None, subprotocols=None, extra_headers=None, host=None, port=None, secure=None, timeout=10, max_size=2 ** 20, loop=None)
 
         .. automethod:: handshake(origins=None, subprotocols=None, extra_headers=None)
         .. automethod:: select_subprotocol(client_protos, server_protos)
@@ -243,7 +243,10 @@ Shared
 
    .. autoclass:: WebSocketCommonProtocol(*, host=None, port=None, secure=None, timeout=10, max_size=2 ** 20, loop=None)
 
-        .. autoattribute:: open()
+        .. autoattribute:: local_address
+        .. autoattribute:: remote_address
+
+        .. autoattribute:: open
         .. automethod:: close(code=1000, reason='')
 
         .. automethod:: recv()
@@ -287,6 +290,15 @@ Utilities
 
 Changelog
 ---------
+
+2.6
+...
+
+* Added ``local_address`` and ``remote_address`` attributes on protocols.
+
+* Closed open connections with code 1001 when a server shuts down.
+
+* Avoided TCP fragmentation of small frames.
 
 2.5
 ...
